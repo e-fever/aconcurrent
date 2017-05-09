@@ -2,7 +2,8 @@
   "name": "",
   "description": "",
   "dependencies": [
-    "com.github.benlau.testable@1.0.2.19"
+    "com.github.benlau.testable@1.0.2.19",
+    "async.future.pri@0.3.4"
   ],
   "license": "NONE",
   "pri_filename": "",

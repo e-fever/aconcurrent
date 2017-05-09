@@ -8,6 +8,6 @@ public:
     explicit AConcurrentTests(QObject *parent = 0);
 
 private slots:
-    void testCase();
+    void mapped();
 };
 

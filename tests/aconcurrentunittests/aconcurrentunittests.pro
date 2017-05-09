@@ -17,7 +17,8 @@ ROOTDIR = $$PWD/../../
 include(vendor/vendor.pri)
 include($$ROOTDIR/aconcurrent.pri)
 
-DISTFILES +=     qpm.json    
+DISTFILES +=     qpm.json \    
+    ../../README.md
 
 HEADERS += \    
     aconcurrenttests.h

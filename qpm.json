@@ -1,22 +1,23 @@
 {
-    "name": "quick.future.pri",
-    "description": "A QML wrapper of QFuture",
-    "author": {
-        "name": "Ben Lau",
-        "email": "xbenlau@gmail.com"
-    },
-    "repository": {
-        "type": "GITHUB",
-        "url": "git@github.com:benlau/quickfuture.git"
-    },
-    "version": {
-        "label": "1.0.3",
-        "revision": "",
-        "fingerprint": ""
-    },
-    "dependencies": [
-    ],
-    "license": "APACHE_2_0",
-    "pri_filename": "quickfuture.pri",
-    "webpage": ""
+  "name": "quick.future.pri",
+  "description": "A QML wrapper of QFuture",
+  "author": {
+    "name": "Ben Lau",
+    "email": "xbenlau@gmail.com"
+  },
+  "repository": {
+    "type": "GITHUB",
+    "url": "git@github.com:benlau/quickfuture.git"
+  },
+  "version": {
+    "label": "1.0.3",
+    "revision": "",
+    "fingerprint": ""
+  },
+  "dependencies": [
+    "async.future.pri@0.3.4"
+  ],
+  "license": "APACHE_2_0",
+  "pri_filename": "quickfuture.pri",
+  "webpage": ""
 }
