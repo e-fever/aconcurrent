@@ -1,16 +1,16 @@
 {
-  "name": "quick.future.pri",
-  "description": "A QML wrapper of QFuture",
+  "name": "net.efever.aconcurrent",
+  "description": "Enhanced QtConcurrent with AsyncFuture",
   "author": {
     "name": "Ben Lau",
-    "email": "xbenlau@gmail.com"
+    "email": "benlau@e-fever.net"
   },
   "repository": {
     "type": "GITHUB",
-    "url": "git@github.com:benlau/quickfuture.git"
+    "url": "git@github.com:e-fever/aconcurrent.git"
   },
   "version": {
-    "label": "1.0.3",
+    "label": "0.1.0",
     "revision": "",
     "fingerprint": ""
   },
@@ -18,6 +18,6 @@
     "async.future.pri@0.3.4"
   ],
   "license": "APACHE_2_0",
-  "pri_filename": "quickfuture.pri",
+  "pri_filename": "aconcurrent.pri",
   "webpage": ""
 }
