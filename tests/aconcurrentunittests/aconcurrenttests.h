@@ -9,5 +9,7 @@ public:
 
 private slots:
     void mapped();
+
+    void blockingMapped();
 };
 

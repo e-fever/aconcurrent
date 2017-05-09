@@ -6,6 +6,13 @@
 #include <QTimer>
 #include <asyncfuture.h>
 
+/* Enhance QtConcurrent by AsyncFuture
+ *
+ * 1) mapped() may take lambda function as input
+ * 2) blockingMapped() - Run with event loop, don't block UI
+ *
+ */
+
 namespace AConcurrent {
 
     namespace Private {
@@ -49,30 +56,7 @@ namespace AConcurrent {
             defer.complete();
         }
 
-    }
-
-    template <typename T, typename F>
-    auto mapped(QThreadPool*pool, QList<T> input, F func) -> QFuture<typename Private::function_traits<F>::result_type>{
-        typedef typename Private::function_traits<F>::result_type RET;
-
-        QVector<QFuture<RET> > futures;
-        futures.resize(input.size());
-
-        auto combinator = AsyncFuture::combine();
-        AsyncFuture::Deferred<RET> defer = AsyncFuture::deferred<RET>();
-
-        for (int i = 0; i < input.size(); i++) {
-            auto f = QtConcurrent::run(pool, func, input[i]);
-            combinator << f;
-            futures[i] = f;
-        }
-
-        combinator.subscribe([=]() {
-            Private::completeDefer(defer, futures);
-        });
-
-        return defer.future();
-    }
+    } // End of Private namespace
 
     // Wait for a QFuture to be finished without blocking
     template <typename T>
@@ -94,5 +78,34 @@ namespace AConcurrent {
         loop.exec();
     }
 
+    template <typename Sequence, typename Functor>
+    auto mapped(QThreadPool*pool, Sequence input, Functor func) -> QFuture<typename Private::function_traits<Functor>::result_type>{
+        typedef typename Private::function_traits<Functor>::result_type RET;
+
+        QVector<QFuture<RET> > futures;
+        futures.resize(input.size());
+
+        auto combinator = AsyncFuture::combine();
+        AsyncFuture::Deferred<RET> defer = AsyncFuture::deferred<RET>();
+
+        for (int i = 0; i < input.size(); i++) {
+            auto f = QtConcurrent::run(pool, func, input[i]);
+            combinator << f;
+            futures[i] = f;
+        }
+
+        combinator.subscribe([=]() {
+            Private::completeDefer(defer, futures);
+        });
+
+        return defer.future();
+    }
+
+    template <typename Sequence, typename Functor>
+    auto blockingMapped(QThreadPool*pool, Sequence input, Functor func) -> QList<typename Private::function_traits<Functor>::result_type>{
+        auto f = mapped(pool, input, func);
+        waitForFinished(f);
+        return f.results();
+    }
 }
 

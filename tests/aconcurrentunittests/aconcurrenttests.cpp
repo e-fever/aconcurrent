@@ -14,7 +14,6 @@ AConcurrentTests::AConcurrentTests(QObject *parent) : QObject(parent)
 
 void AConcurrentTests::mapped()
 {
-
     auto worker = [](int value) {
         return value * value;
     };
@@ -30,9 +29,25 @@ void AConcurrentTests::mapped()
 
     QList<int> result;
     QList<int> expected;
-    expected     << 1 << 4 << 9;
+    expected  << 1 << 4 << 9;
 
     result = future.results();
+
+    QVERIFY(result == expected);
+}
+
+void AConcurrentTests::blockingMapped()
+{
+    auto worker = [](int value) {
+        return value * value;
+    };
+
+    QList<int> input;
+    input << 1 << 2 << 3;
+
+    QList<int> result = AConcurrent::blockingMapped(QThreadPool::globalInstance(), input, worker);
+    QList<int> expected;
+    expected  << 1 << 4 << 9;
 
     QVERIFY(result == expected);
 }
