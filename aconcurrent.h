@@ -42,7 +42,7 @@ namespace AConcurrent {
         };
 
         template <typename R>
-        void completeDefer(AsyncFuture::Deferred<R> defer, const QVector<QFuture<R>> &futures) {
+        inline void completeDefer(AsyncFuture::Deferred<R> defer, const QVector<QFuture<R>> &futures) {
             QList<R> res;
             for (int i = 0 ; i < futures.size() ;i++) {
                 res << futures[i].result();
@@ -51,7 +51,7 @@ namespace AConcurrent {
         }
 
         template <>
-        void completeDefer<void>(AsyncFuture::Deferred<void> defer, const QVector<QFuture<void>>& futures) {
+        inline void completeDefer<void>(AsyncFuture::Deferred<void> defer, const QVector<QFuture<void>>& futures) {
             Q_UNUSED(futures);
             defer.complete();
         }
@@ -60,7 +60,7 @@ namespace AConcurrent {
 
     // Wait for a QFuture to be finished without blocking
     template <typename T>
-    void waitForFinished(QFuture<T> future, int timeout = -1) {
+    inline void waitForFinished(QFuture<T> future, int timeout = -1) {
         if (future.isFinished()) {
             return;
         }
@@ -79,7 +79,7 @@ namespace AConcurrent {
     }
 
     template <typename Sequence, typename Functor>
-    auto mapped(QThreadPool*pool, Sequence input, Functor func) -> QFuture<typename Private::function_traits<Functor>::result_type>{
+    inline auto mapped(QThreadPool*pool, Sequence input, Functor func) -> QFuture<typename Private::function_traits<Functor>::result_type>{
         typedef typename Private::function_traits<Functor>::result_type RET;
 
         QVector<QFuture<RET> > futures;
@@ -102,7 +102,7 @@ namespace AConcurrent {
     }
 
     template <typename Sequence, typename Functor>
-    auto blockingMapped(QThreadPool*pool, Sequence input, Functor func) -> QList<typename Private::function_traits<Functor>::result_type>{
+    inline auto blockingMapped(QThreadPool*pool, Sequence input, Functor func) -> QList<typename Private::function_traits<Functor>::result_type>{
         auto f = mapped(pool, input, func);
         waitForFinished(f);
         return f.results();

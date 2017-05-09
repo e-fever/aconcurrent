@@ -6,6 +6,18 @@
 #include <TestRunner>
 #include <QtQuickTest/quicktest.h>
 #include "aconcurrenttests.h"
+#include "aconcurrent.h"
+
+void dummy() {
+    // Dummy function. It is not called.
+    // It just prove it won't create any duplicated symbols
+
+    auto worker = [](int value) {
+        return value * value;
+    };
+
+    AConcurrent::blockingMapped(QThreadPool::globalInstance(), QList<int>(), worker);
+}
 
 void handleBacktrace(int sig) {
     void *array[100];
@@ -33,15 +45,6 @@ int main(int argc, char *argv[])
     TestRunner runner;
     runner.addImportPath("qrc:///");
     runner.add<AConcurrentTests>();
-
-    int waitTime = 100;
-    if (app.arguments().size() != 1) {
-        waitTime = 60000;
-    }
-
-    QVariantMap config;
-    config["waitTime"] = waitTime;
-    runner.setConfig(config);
 
     bool error = runner.exec(app.arguments());
 

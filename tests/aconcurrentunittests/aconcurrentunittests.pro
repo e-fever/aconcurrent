@@ -18,7 +18,8 @@ include(vendor/vendor.pri)
 include($$ROOTDIR/aconcurrent.pri)
 
 DISTFILES +=     qpm.json \    
-    ../../README.md
+    ../../README.md \
+    ../../qpm.json
 
 HEADERS += \    
     aconcurrenttests.h
