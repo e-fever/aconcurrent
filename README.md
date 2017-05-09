@@ -1,4 +1,4 @@
-# aconcurrent
+AConcurrent
 Enhance QtConcurrent via AsyncFuture
 -------------------------------------
 
