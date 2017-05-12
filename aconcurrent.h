@@ -114,11 +114,17 @@ namespace AConcurrent {
     private:
         class Context {
         public:
+            ~Context() {
+                // clear any pending defer object
+                defer = AsyncFuture::deferred<RET>();
+            }
+
             QPointer<QThreadPool> pool;
             std::function<RET(ARG)> worker;
             AsyncFuture::Deferred<ARG> defer;
             QQueue<ARG> queue;
-            // The head started
+
+            // Is the head started?
             bool started;
         };
 
