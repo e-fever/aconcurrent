@@ -40,7 +40,7 @@ int main(int argc, char *argv[])
 {
     signal(SIGSEGV, handleBacktrace);
 
-    QGuiApplication app(argc, argv);
+    QCoreApplication app(argc, argv);
 
     TestRunner runner;
     runner.addImportPath("qrc:///");
