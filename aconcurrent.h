@@ -5,6 +5,7 @@
 #include <QThreadPool>
 #include <QTimer>
 #include <asyncfuture.h>
+#include <functional>
 
 /* Enhance QtConcurrent by AsyncFuture
  *
@@ -107,5 +108,76 @@ namespace AConcurrent {
         waitForFinished(f);
         return f.results();
     }
+
+    template <typename ARG, typename RET>
+    class Queue {
+    private:
+        class Context {
+        public:
+            QPointer<QThreadPool> pool;
+            std::function<RET(ARG)> worker;
+            AsyncFuture::Deferred<ARG> defer;
+            QQueue<ARG> queue;
+            // The head started
+            bool started;
+        };
+
+    public:
+        Queue(QThreadPool* pool, std::function<RET(ARG)> worker) : d(QSharedPointer<Context>::create()) {
+            d->pool = pool;
+            d->worker = worker;
+            d->started = false;
+        }
+
+        int count() {
+            return d->queue.count();
+        }
+
+        // The head's future
+        QFuture<RET> future() {
+            return d->defer.future();
+        }
+
+        void enqueue(ARG arg) {
+            d->queue.enqueue(arg);
+        }
+
+        void dequeue() {
+            d->defer = AsyncFuture::deferred<RET>();
+            d->started = false;
+            if (d->queue.count() > 0) {
+                d->queue.dequeue();
+            }
+        }
+
+        void run() {
+            // Run the head
+            if (d->started || d->queue.count() == 0) {
+                return;
+            }
+            d->started = true;
+            auto f = QtConcurrent::run(d->pool, d->worker, d->queue.head());
+            d->defer.complete(f);
+        }
+
+    private:
+        QSharedPointer<Context> d;
+    };
+
+    template <typename Functor>
+    inline auto queue(QThreadPool*pool, Functor func) -> Queue<
+        typename Private::function_traits<Functor>::template arg<0>::type,
+        typename Private::function_traits<Functor>::result_type
+    >{
+        Queue<
+                typename Private::function_traits<Functor>::template arg<0>::type,
+                typename Private::function_traits<Functor>::result_type
+            > queue(pool, func);
+
+
+        return queue;
+    }
+
+
 }
 

@@ -11,5 +11,7 @@ private slots:
     void mapped();
 
     void blockingMapped();
+
+    void queue();
 };
 
