@@ -57,6 +57,70 @@ namespace AConcurrent {
             defer.complete();
         }
 
+        template <typename Sequence, typename Functor>
+        class Scheduler {
+        public:
+            typedef typename Private::function_traits<Functor>::template arg<0>::type ARG;
+            typedef typename Private::function_traits<Functor>::result_type RET;
+
+            Scheduler(QThreadPool*pool, Sequence sequence, Functor worker) :  worker(worker), pool(pool) {
+                source = sequence;
+                finishedCount = 0;
+
+                int count = qMin(pool->maxThreadCount(), sequence.count());
+                while (count--) {
+                    enqueue();
+                }
+            }
+
+            void enqueue() {
+                int index = futures.size();
+
+                auto future = QtConcurrent::run(worker, source[index]);
+                futures << future;
+                AsyncFuture::observe(future).subscribe([=]() {
+                    onFutureFinished();
+                });
+            }
+
+            void onFutureFinished() {
+                finishedCount++;
+
+                if (futures.size() < source.size()) {
+                    enqueue();
+                    return;
+                }
+
+                if (finishedCount == futures.size()) {
+                    QList<RET> res;
+
+                    for (int i = 0 ; i < futures.size() ;i++) {
+                        res << futures[i].result();
+                    }
+                    defer.complete(res);
+                    delete this;
+                }
+            }
+
+            QFuture<RET> future() {
+                return defer.future();
+            }
+
+        private:
+            Sequence source;
+            std::function<RET(ARG)> worker;
+            QPointer<QThreadPool> pool;
+            AsyncFuture::Deferred<RET> defer;
+            QList<QFuture<RET>> futures;
+            int finishedCount;
+        };
+
+        template <typename Sequence, typename Functor>
+        inline auto schedule(QThreadPool*pool, Sequence sequence, Functor functor) -> Scheduler<Sequence, Functor>* {
+            return new Scheduler<Sequence, Functor>(pool, sequence, functor);
+        }
+
+
     } // End of Private namespace
 
     // Wait for a QFuture to be finished without blocking
@@ -77,36 +141,6 @@ namespace AConcurrent {
         QObject::connect(&watcher, SIGNAL(finished()), &loop, SLOT(quit()));
 
         loop.exec();
-    }
-
-    template <typename Sequence, typename Functor>
-    inline auto mapped(QThreadPool*pool, Sequence input, Functor func) -> QFuture<typename Private::function_traits<Functor>::result_type>{
-        typedef typename Private::function_traits<Functor>::result_type RET;
-
-        QVector<QFuture<RET> > futures;
-        futures.resize(input.size());
-
-        auto combinator = AsyncFuture::combine();
-        AsyncFuture::Deferred<RET> defer = AsyncFuture::deferred<RET>();
-
-        for (int i = 0; i < input.size(); i++) {
-            auto f = QtConcurrent::run(pool, func, input[i]);
-            combinator << f;
-            futures[i] = f;
-        }
-
-        combinator.subscribe([=]() {
-            Private::completeDefer(defer, futures);
-        });
-
-        return defer.future();
-    }
-
-    template <typename Sequence, typename Functor>
-    inline auto blockingMapped(QThreadPool*pool, Sequence input, Functor func) -> QList<typename Private::function_traits<Functor>::result_type>{
-        auto f = mapped(pool, input, func);
-        waitForFinished(f);
-        return f.results();
     }
 
     template <typename ARG, typename RET>
@@ -151,14 +185,15 @@ namespace AConcurrent {
             }
         }
 
-        void run() {
-            // Run the head
+        QFuture<RET> run() {
+            // Run the head item
             if (d->started || d->queue.count() == 0) {
-                return;
+                return d->defer.future();
             }
             d->started = true;
             auto f = QtConcurrent::run(d->pool, d->worker, d->queue.head());
             d->defer.complete(f);
+            return d->defer.future();
         }
 
     private:
@@ -179,6 +214,18 @@ namespace AConcurrent {
         return queue;
     }
 
+    template <typename Sequence, typename Functor>
+    inline auto mapped(QThreadPool*pool, Sequence input, Functor func) -> QFuture<typename Private::function_traits<Functor>::result_type>{
+        auto scheduler = Private::schedule(pool, input, func);
+        return scheduler->future();
+    }
+
+    template <typename Sequence, typename Functor>
+    inline auto blockingMapped(QThreadPool*pool, Sequence input, Functor func) -> QList<typename Private::function_traits<Functor>::result_type>{
+        auto f = mapped(pool, input, func);
+        waitForFinished(f);
+        return f.results();
+    }
 
 }
 
