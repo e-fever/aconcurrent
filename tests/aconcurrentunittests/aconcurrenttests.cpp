@@ -77,6 +77,7 @@ void AConcurrentTests::test_mapped_void()
     QMutex mutex;
 
     auto worker = [&](int value) -> void {
+        Q_UNUSED(value);
         mutex.lock();
         count++;
         mutex.unlock();
@@ -163,7 +164,7 @@ void AConcurrentTests::test_blockingMapped()
 void AConcurrentTests::test_queue()
 {
     int count = 0;
-    auto worker = [&](int value) {
+    auto worker = [&](int value) -> qreal {
         Automator::wait(50);
         count++;
         return value * value;
@@ -177,6 +178,7 @@ void AConcurrentTests::test_queue()
     QCOMPARE(f.isFinished(), false);
 
     queue.enqueue(2);
+    QCOMPARE(queue.head(), 2);
     QCOMPARE(queue.count(), 1);
     QCOMPARE(f.isFinished(), false);
 
@@ -188,7 +190,7 @@ void AConcurrentTests::test_queue()
     }, 1000);
 
     QCOMPARE(f.isFinished(), true);
-    QCOMPARE(f.result(), 4);
+    QCOMPARE(f.result(), 4.0);
     QCOMPARE(queue.count(), 1);
     QCOMPARE(count, 1);
 
@@ -206,7 +208,7 @@ void AConcurrentTests::test_queue()
     }, 1000);
 
     QCOMPARE(f.isFinished(), true);
-    QCOMPARE(f.result(), 9);
+    QCOMPARE(f.result(), 9.0);
     QCOMPARE(queue.count(), 1);
     QCOMPARE(count, 2);
 }

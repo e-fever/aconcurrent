@@ -147,7 +147,7 @@ namespace AConcurrent {
         public:
             QPointer<QThreadPool> pool;
             std::function<RET(ARG)> worker;
-            AsyncFuture::Deferred<ARG> defer;
+            AsyncFuture::Deferred<RET> defer;
             QQueue<ARG> queue;
 
             // Is the head started?
@@ -172,6 +172,10 @@ namespace AConcurrent {
 
         void enqueue(ARG arg) {
             d->queue.enqueue(arg);
+        }
+
+        ARG head() {
+            return d->queue.head();
         }
 
         void dequeue() {
