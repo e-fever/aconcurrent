@@ -44,14 +44,20 @@ AConcurrentTests::AConcurrentTests(QObject *parent) : QObject(parent)
     Q_UNUSED(ref);
 }
 
-void AConcurrentTests::mapped()
+void AConcurrentTests::test_mapped()
 {
     auto worker = [](int value) {
         return value * value;
     };
 
+    int count = 200;
     QList<int> input;
-    input << 1 << 2 << 3;
+    QList<int> expected;
+
+    for (int i = 0 ; i < count ; i++) {
+        input << (i+1);
+        expected << (i+1) * (i+1);
+    }
 
     QFuture<int> future = AConcurrent::mapped(QThreadPool::globalInstance(), input, worker);
 
@@ -60,15 +66,62 @@ void AConcurrentTests::mapped()
     QVERIFY(future.isFinished());
 
     QList<int> result;
-    QList<int> expected;
-    expected  << 1 << 4 << 9;
-
     result = future.results();
 
     QVERIFY(result == expected);
 }
 
-void AConcurrentTests::blockingMapped()
+void AConcurrentTests::test_mapped_memory()
+{
+    static int count = 0;
+
+    class Dummy {
+    public:
+
+        Dummy() {
+            count++;
+        }
+
+        ~Dummy() {
+            count--;
+        }
+    };
+
+    QSharedPointer<Dummy> dummy = QSharedPointer<Dummy>::create();
+    QCOMPARE(count, 1);
+
+    class Data {
+    public:
+        int result;
+        QSharedPointer<Dummy> ref;
+    };
+
+    auto worker = [&](int value) -> Data {
+        Data data;
+        data.result = value * value;
+        data.ref = dummy;
+        return data;
+    };
+
+    {
+        QList<int> input;
+        input << 1 << 2 << 3;
+
+        QFuture<Data> future = AConcurrent::mapped(QThreadPool::globalInstance(), input, worker);
+
+        AConcurrent::waitForFinished(future);
+
+        QVERIFY(future.isFinished());
+        QCOMPARE(count , 1);
+
+        dummy.clear();
+        QCOMPARE(count , 1);
+    }
+
+    QCOMPARE(count , 0);
+}
+
+void AConcurrentTests::test_blockingMapped()
 {
     auto worker = [](int value) {
         return value * value;
@@ -84,7 +137,7 @@ void AConcurrentTests::blockingMapped()
     QVERIFY(result == expected);
 }
 
-void AConcurrentTests::queue()
+void AConcurrentTests::test_queue()
 {
     int count = 0;
     auto worker = [&](int value) {

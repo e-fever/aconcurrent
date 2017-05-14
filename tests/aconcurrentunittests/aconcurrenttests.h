@@ -8,10 +8,13 @@ public:
     explicit AConcurrentTests(QObject *parent = 0);
 
 private slots:
-    void mapped();
 
-    void blockingMapped();
+    void test_mapped();
 
-    void queue();
+    void test_mapped_memory();
+
+    void test_blockingMapped();
+
+    void test_queue();
 };
 
