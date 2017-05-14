@@ -66,6 +66,8 @@ namespace AConcurrent {
             Scheduler(QThreadPool*pool, Sequence sequence, Functor worker) :  worker(worker), pool(pool) {
                 source = sequence;
                 finishedCount = 0;
+                index = 0;
+                futures.resize(source.size());
 
                 int count = qMin(pool->maxThreadCount(), sequence.count());
                 while (count--) {
@@ -74,10 +76,9 @@ namespace AConcurrent {
             }
 
             void enqueue() {
-                int index = futures.size();
-
                 auto future = QtConcurrent::run(worker, source[index]);
-                futures << future;
+                futures[index] = future;
+                index++;
                 AsyncFuture::observe(future).subscribe([=]() {
                     onFutureFinished();
                 });
@@ -86,18 +87,13 @@ namespace AConcurrent {
             void onFutureFinished() {
                 finishedCount++;
 
-                if (futures.size() < source.size()) {
+                if (index < source.size()) {
                     enqueue();
                     return;
                 }
 
-                if (finishedCount == futures.size()) {
-                    QList<RET> res;
-
-                    for (int i = 0 ; i < futures.size() ;i++) {
-                        res << futures[i].result();
-                    }
-                    defer.complete(res);
+                if (finishedCount == source.size()) {
+                    completeDefer(defer, futures);
                     delete this;
                 }
             }
@@ -111,8 +107,9 @@ namespace AConcurrent {
             std::function<RET(ARG)> worker;
             QPointer<QThreadPool> pool;
             AsyncFuture::Deferred<RET> defer;
-            QList<QFuture<RET>> futures;
+            QVector<QFuture<RET>> futures;
             int finishedCount;
+            int index;
         };
 
         template <typename Sequence, typename Functor>

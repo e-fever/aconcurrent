@@ -71,6 +71,29 @@ void AConcurrentTests::test_mapped()
     QVERIFY(result == expected);
 }
 
+void AConcurrentTests::test_mapped_void()
+{
+    int count = 0;
+    QMutex mutex;
+
+    auto worker = [&](int value) -> void {
+        mutex.lock();
+        count++;
+        mutex.unlock();
+    };
+
+    QList<int> input;
+
+    for (int i = 0 ; i < 3 ; i++) {
+        input << (i+1);
+    }
+
+    QFuture<void> future = AConcurrent::mapped(QThreadPool::globalInstance(), input, worker);
+    AConcurrent::waitForFinished(future);
+
+    QCOMPARE(count, 3);
+}
+
 void AConcurrentTests::test_mapped_memory()
 {
     static int count = 0;

@@ -11,6 +11,8 @@ private slots:
 
     void test_mapped();
 
+    void test_mapped_void();
+
     void test_mapped_memory();
 
     void test_blockingMapped();
