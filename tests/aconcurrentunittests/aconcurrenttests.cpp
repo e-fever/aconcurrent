@@ -60,7 +60,7 @@ void AConcurrentTests::test_mapped()
         expected << (i+1) * (i+1);
     }
 
-    QFuture<int> future = AConcurrent::mapped(QThreadPool::globalInstance(), input, worker);
+    QFuture<int> future = AConcurrent::mapped(&pool, input, worker);
 
     AConcurrent::await(future);
 
@@ -90,7 +90,7 @@ void AConcurrentTests::test_mapped_void()
         input << (i+1);
     }
 
-    QFuture<void> future = AConcurrent::mapped(QThreadPool::globalInstance(), input, worker);
+    QFuture<void> future = AConcurrent::mapped(&pool, input, worker);
     AConcurrent::await(future);
 
     QCOMPARE(count, 3);
@@ -132,7 +132,7 @@ void AConcurrentTests::test_mapped_memory()
         QList<int> input;
         input << 1 << 2 << 3;
 
-        QFuture<Data> future = AConcurrent::mapped(QThreadPool::globalInstance(), input, worker);
+        QFuture<Data> future = AConcurrent::mapped(&pool, input, worker);
 
         AConcurrent::await(future);
 
