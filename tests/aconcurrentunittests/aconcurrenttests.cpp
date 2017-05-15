@@ -36,6 +36,10 @@ bool waitUntil(QFuture<T> future, int timeout = -1) {
     tick();
 }
 
+bool inMainThread() {
+    return QThread::currentThread() == QCoreApplication::instance()->thread();
+}
+
 AConcurrentTests::AConcurrentTests(QObject *parent) : QObject(parent)
 {
     auto ref = [=]() {
@@ -140,9 +144,16 @@ void AConcurrentTests::test_mapped_memory()
         QCOMPARE(count , 1);
 
         dummy.clear();
-        QCOMPARE(count , 1);
+        QCOMPARE(count , 1); // The reference is not cleared yet.
+
+        QList<Data> results = future.results();
+        QCOMPARE(results.size(), 3);
+        QCOMPARE(results[0].result, 1);
+        QCOMPARE(results[1].result, 4);
+        QCOMPARE(results[2].result, 9);
     }
 
+    Automator::wait(10);
     QCOMPARE(count , 0);
 }
 
@@ -249,7 +260,10 @@ void AConcurrentTests::test_runOnMainThread()
     {
         // runOnMainThread<void> in main thread
         int count = 0;
-        QFuture<void> future = AConcurrent::runOnMainThread([&]() {count++;});
+        QFuture<void> future = AConcurrent::runOnMainThread([&]() {
+            count++;
+            QVERIFY(inMainThread());
+        });
         QCOMPARE(count, 0);
         AConcurrent::await(future);
         QCOMPARE(count, 1);
@@ -257,16 +271,25 @@ void AConcurrentTests::test_runOnMainThread()
     }
 
     {
+        bool valid = false;
         // runOnMainThread<int> in main thread
-        QFuture<int> future = AConcurrent::runOnMainThread([&]() {return 9;});
+        QFuture<int> future = AConcurrent::runOnMainThread([&]() {
+            valid = inMainThread();
+            return 9;
+        });
         AConcurrent::await(future);
         QCOMPARE(future.result(), 9);
+        QCOMPARE(valid, true);
     }
 
     {
         int result = 0;
+        bool valid = false;
         auto worker = [&]() {
-            QFuture<int> future = AConcurrent::runOnMainThread([&]() {return 9;});
+            QFuture<int> future = AConcurrent::runOnMainThread([&]() {
+                valid = inMainThread();
+                return 9;
+            });
             AConcurrent::await(future);
             QCOMPARE(future.result(), 9);
             result = future.result() + 1;
