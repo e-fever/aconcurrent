@@ -61,7 +61,7 @@ void AConcurrentTests::test_mapped()
 
     QFuture<int> future = AConcurrent::mapped(QThreadPool::globalInstance(), input, worker);
 
-    AConcurrent::waitForFinished(future);
+    AConcurrent::await(future);
 
     QVERIFY(future.isFinished());
 
@@ -90,7 +90,7 @@ void AConcurrentTests::test_mapped_void()
     }
 
     QFuture<void> future = AConcurrent::mapped(QThreadPool::globalInstance(), input, worker);
-    AConcurrent::waitForFinished(future);
+    AConcurrent::await(future);
 
     QCOMPARE(count, 3);
 }
@@ -133,7 +133,7 @@ void AConcurrentTests::test_mapped_memory()
 
         QFuture<Data> future = AConcurrent::mapped(QThreadPool::globalInstance(), input, worker);
 
-        AConcurrent::waitForFinished(future);
+        AConcurrent::await(future);
 
         QVERIFY(future.isFinished());
         QCOMPARE(count , 1);

@@ -122,7 +122,7 @@ namespace AConcurrent {
 
     // Wait for a QFuture to be finished without blocking
     template <typename T>
-    inline void waitForFinished(QFuture<T> future, int timeout = -1) {
+    inline void await(QFuture<T> future, int timeout = -1) {
         if (future.isFinished()) {
             return;
         }
@@ -224,7 +224,7 @@ namespace AConcurrent {
     template <typename Sequence, typename Functor>
     inline auto blockingMapped(QThreadPool*pool, Sequence input, Functor func) -> QList<typename Private::function_traits<Functor>::result_type>{
         auto f = mapped(pool, input, func);
-        waitForFinished(f);
+        await(f);
         return f.results();
     }
 
