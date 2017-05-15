@@ -145,6 +145,36 @@ void AConcurrentTests::test_mapped_memory()
     QCOMPARE(count , 0);
 }
 
+void AConcurrentTests::test_mapped_in_non_main_thread()
+{
+    auto thread = [=]() {
+
+        auto worker = [](int value) {
+            return value * value;
+        };
+
+        int count = 200;
+        QList<int> input;
+        QList<int> expected;
+
+        for (int i = 0 ; i < count ; i++) {
+            input << (i+1);
+            expected << (i+1) * (i+1);
+        }
+
+        QFuture<int> future = AConcurrent::mapped(QThreadPool::globalInstance(), input, worker);
+        AConcurrent::await(future);
+
+        QVERIFY(future.isFinished());
+
+        QList<int> result;
+        result = future.results();
+        QVERIFY(result == expected);
+    };
+
+    AConcurrent::await(QtConcurrent::run(thread));
+}
+
 void AConcurrentTests::test_blockingMapped()
 {
     auto worker = [](int value) {

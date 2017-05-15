@@ -17,7 +17,6 @@
 namespace AConcurrent {
 
     namespace Private {
-
         // Value is a wrapper of data structure which could contain <void> type.
         template <typename R>
         class Value {
@@ -92,66 +91,6 @@ namespace AConcurrent {
         inline void completeDefer<void>(AsyncFuture::Deferred<void> defer, const QVector<QFuture<void>>& futures) {
             Q_UNUSED(futures);
             defer.complete();
-        }
-
-        template <typename Sequence, typename Functor>
-        class Scheduler {
-        public:
-            typedef typename Private::function_traits<Functor>::template arg<0>::type ARG;
-            typedef typename Private::function_traits<Functor>::result_type RET;
-
-            Scheduler(QThreadPool*pool, Sequence sequence, Functor worker) :  worker(worker), pool(pool) {
-                source = sequence;
-                finishedCount = 0;
-                index = 0;
-                futures.resize(source.size());
-
-                int count = qMin(pool->maxThreadCount(), sequence.count());
-                while (count--) {
-                    enqueue();
-                }
-            }
-
-            void enqueue() {
-                auto future = QtConcurrent::run(worker, source[index]);
-                futures[index] = future;
-                index++;
-                AsyncFuture::observe(future).subscribe([=]() {
-                    onFutureFinished();
-                });
-            }
-
-            void onFutureFinished() {
-                finishedCount++;
-
-                if (index < source.size()) {
-                    enqueue();
-                    return;
-                }
-
-                if (finishedCount == source.size()) {
-                    completeDefer(defer, futures);
-                    delete this;
-                }
-            }
-
-            QFuture<RET> future() {
-                return defer.future();
-            }
-
-        private:
-            Sequence source;
-            std::function<RET(ARG)> worker;
-            QPointer<QThreadPool> pool;
-            AsyncFuture::Deferred<RET> defer;
-            QVector<QFuture<RET>> futures;
-            int finishedCount;
-            int index;
-        };
-
-        template <typename Sequence, typename Functor>
-        inline auto schedule(QThreadPool*pool, Sequence sequence, Functor functor) -> Scheduler<Sequence, Functor>* {
-            return new Scheduler<Sequence, Functor>(pool, sequence, functor);
         }
 
 
@@ -267,9 +206,78 @@ namespace AConcurrent {
         return queue;
     }
 
+    namespace Private {
+        namespace Scheduler {
+
+            template <typename Sequence, typename Functor>
+            class Scheduler {
+            public:
+                typedef typename Private::function_traits<Functor>::template arg<0>::type ARG;
+                typedef typename Private::function_traits<Functor>::result_type RET;
+
+                Scheduler(QThreadPool*pool, Sequence sequence, Functor worker) :  worker(worker), pool(pool) {
+                    source = sequence;
+                    finishedCount = 0;
+                    index = 0;
+                    futures.resize(source.size());
+
+                    int count = qMin(pool->maxThreadCount(), sequence.count());
+
+                    runOnMainThread([=]() {
+                        int c = count;
+                        while (c--) {
+                            enqueue();
+                        }
+                    });
+                }
+
+                void enqueue() {
+                    auto future = QtConcurrent::run(worker, source[index]);
+                    futures[index] = future;
+                    index++;
+                    AsyncFuture::observe(future).subscribe([=]() {
+                        onFutureFinished();
+                    });
+                }
+
+                void onFutureFinished() {
+                    finishedCount++;
+
+                    if (index < source.size()) {
+                        enqueue();
+                        return;
+                    }
+
+                    if (finishedCount == source.size()) {
+                        completeDefer(defer, futures);
+                        delete this;
+                    }
+                }
+
+                QFuture<RET> future() {
+                    return defer.future();
+                }
+
+            private:
+                Sequence source;
+                std::function<RET(ARG)> worker;
+                QPointer<QThreadPool> pool;
+                AsyncFuture::Deferred<RET> defer;
+                QVector<QFuture<RET>> futures;
+                int finishedCount;
+                int index;
+            };
+
+            template <typename Sequence, typename Functor>
+            inline auto schedule(QThreadPool*pool, Sequence sequence, Functor functor) -> Scheduler<Sequence, Functor>* {
+                return new Scheduler<Sequence, Functor>(pool, sequence, functor);
+            }
+        }
+    }
+
     template <typename Sequence, typename Functor>
     inline auto mapped(QThreadPool*pool, Sequence input, Functor func) -> QFuture<typename Private::function_traits<Functor>::result_type>{
-        auto scheduler = Private::schedule(pool, input, func);
+        auto scheduler = Private::Scheduler::schedule(pool, input, func);
         return scheduler->future();
     }
 

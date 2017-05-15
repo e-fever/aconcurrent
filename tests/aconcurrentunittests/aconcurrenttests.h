@@ -15,6 +15,8 @@ private slots:
 
     void test_mapped_memory();
 
+    void test_mapped_in_non_main_thread();
+
     void test_blockingMapped();
 
     void test_queue();
