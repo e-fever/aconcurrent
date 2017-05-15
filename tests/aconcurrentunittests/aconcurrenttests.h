@@ -1,5 +1,6 @@
 #pragma once
 #include <QObject>
+#include <QThreadPool>
 
 class AConcurrentTests : public QObject
 {
@@ -22,5 +23,9 @@ private slots:
     void test_queue();
 
     void test_runOnMainThread();
+
+private:
+
+    QThreadPool pool;
 };
 

@@ -42,6 +42,7 @@ AConcurrentTests::AConcurrentTests(QObject *parent) : QObject(parent)
         QTest::qExec(this, 0, 0); // Autotest detect available test cases of a QObject by looking for "QTest::qExec" in source code
     };
     Q_UNUSED(ref);
+    pool.setMaxThreadCount(4);
 }
 
 void AConcurrentTests::test_mapped()
@@ -162,7 +163,7 @@ void AConcurrentTests::test_mapped_in_non_main_thread()
             expected << (i+1) * (i+1);
         }
 
-        QFuture<int> future = AConcurrent::mapped(QThreadPool::globalInstance(), input, worker);
+        QFuture<int> future = AConcurrent::mapped(&pool, input, worker);
         AConcurrent::await(future);
 
         QVERIFY(future.isFinished());
@@ -172,7 +173,7 @@ void AConcurrentTests::test_mapped_in_non_main_thread()
         QVERIFY(result == expected);
     };
 
-    AConcurrent::await(QtConcurrent::run(thread));
+    AConcurrent::await(QtConcurrent::run(&pool, thread));
 }
 
 void AConcurrentTests::test_blockingMapped()
