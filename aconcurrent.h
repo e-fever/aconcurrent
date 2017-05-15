@@ -17,6 +17,43 @@
 namespace AConcurrent {
 
     namespace Private {
+
+        // Value is a wrapper of data structure which could contain <void> type.
+        template <typename R>
+        class Value {
+        public:
+           Value() {
+           }
+
+           template <typename Functor>
+           void run(Functor functor) {
+               value = functor();
+           }
+
+           void complete(AsyncFuture::Deferred<R> defer) {
+               defer.complete(value);
+           }
+
+           R value;
+        };
+
+        template <>
+        class Value<void> {
+        public:
+            Value() {
+
+            }
+
+            template <typename Functor>
+            void run(Functor functor) {
+                functor();
+            }
+
+            void complete(AsyncFuture::Deferred<void> defer) {
+                defer.complete();
+            }
+        };
+
         // function_traits: Source: http://stackoverflow.com/questions/7943525/is-it-possible-to-figure-out-the-parameter-type-and-return-type-of-a-lambda
 
         template <typename T>
@@ -119,6 +156,21 @@ namespace AConcurrent {
 
 
     } // End of Private namespace
+
+    /// Run a function on main thread. If it is already in main thread, it will be executed in next tick.
+    template <typename Functor>
+    inline auto runOnMainThread(Functor func) -> QFuture<typename Private::function_traits<Functor>::result_type> {
+        typedef typename Private::function_traits<Functor>::result_type RET;
+        QObject tmp;
+        AsyncFuture::Deferred<RET> defer;
+        auto worker = [=]() {
+            Private::Value<RET> value;
+            value.run(func);
+            value.complete(defer);
+        };
+        QObject::connect(&tmp, &QObject::destroyed, QCoreApplication::instance(), worker, Qt::QueuedConnection);
+        return defer.future();
+    }
 
     // Wait for a QFuture to be finished without blocking
     template <typename T>

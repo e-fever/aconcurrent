@@ -213,3 +213,36 @@ void AConcurrentTests::test_queue()
     QCOMPARE(count, 2);
 }
 
+void AConcurrentTests::test_runOnMainThread()
+{
+    {
+        // runOnMainThread<void> in main thread
+        int count = 0;
+        QFuture<void> future = AConcurrent::runOnMainThread([&]() {count++;});
+        QCOMPARE(count, 0);
+        AConcurrent::await(future);
+        QCOMPARE(count, 1);
+
+    }
+
+    {
+        // runOnMainThread<int> in main thread
+        QFuture<int> future = AConcurrent::runOnMainThread([&]() {return 9;});
+        AConcurrent::await(future);
+        QCOMPARE(future.result(), 9);
+    }
+
+    {
+        int result = 0;
+        auto worker = [&]() {
+            QFuture<int> future = AConcurrent::runOnMainThread([&]() {return 9;});
+            AConcurrent::await(future);
+            QCOMPARE(future.result(), 9);
+            result = future.result() + 1;
+        };
+        AConcurrent::await(QtConcurrent::run(worker));
+        QCOMPARE(result, 10);
+    }
+
+}
+

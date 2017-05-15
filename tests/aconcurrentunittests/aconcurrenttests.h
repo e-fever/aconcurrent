@@ -18,5 +18,7 @@ private slots:
     void test_blockingMapped();
 
     void test_queue();
+
+    void test_runOnMainThread();
 };
 
