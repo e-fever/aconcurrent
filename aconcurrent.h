@@ -93,6 +93,11 @@ namespace AConcurrent {
             defer.complete();
         }
 
+        inline QString key(QObject* object, QString extraKey) {
+            return QString("%1-%2").arg(QString::number((long) object, 16) ).arg(extraKey);
+        }
+
+        extern QMap<QString, QFuture<void>> debounceStore;
 
     } // End of Private namespace
 
@@ -129,6 +134,36 @@ namespace AConcurrent {
         QObject::connect(&watcher, SIGNAL(finished()), &loop, SLOT(quit()));
 
         loop.exec();
+    }
+
+    template <typename T, typename Functor>
+    void debounce(QObject* context, QString key, QFuture<T> future, Functor functor) {
+
+        QString k = Private::key(context, key);
+
+        auto defer = AsyncFuture::deferred<void>();
+
+        auto cleanup = [=]() {
+            if (Private::debounceStore.contains(k) &&
+                Private::debounceStore[k] == defer.future()) {
+                Private::debounceStore.remove(k);
+            }
+        };
+
+        defer.subscribe([=]() {
+            if (Private::debounceStore.contains(k) &&
+                Private::debounceStore[k] == defer.future()) {
+                functor();
+            }
+            cleanup();
+        }, cleanup);
+
+        defer.complete(future);
+
+        if (Private::debounceStore.contains(k)) {
+            Private::debounceStore[k].cancel();
+        }
+        Private::debounceStore[k] = defer.future();
     }
 
     template <typename ARG, typename RET>

@@ -24,6 +24,8 @@ private slots:
 
     void test_runOnMainThread();
 
+    void test_debounce();
+
 private:
 
     QThreadPool pool;

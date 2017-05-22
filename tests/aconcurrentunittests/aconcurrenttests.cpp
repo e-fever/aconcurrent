@@ -40,6 +40,8 @@ bool inMainThread() {
     return QThread::currentThread() == QCoreApplication::instance()->thread();
 }
 
+using namespace AConcurrent;
+
 AConcurrentTests::AConcurrentTests(QObject *parent) : QObject(parent)
 {
     auto ref = [=]() {
@@ -297,6 +299,86 @@ void AConcurrentTests::test_runOnMainThread()
         AConcurrent::await(QtConcurrent::run(worker));
         QCOMPARE(result, 10);
     }
+
+}
+
+void AConcurrentTests::test_debounce()
+{
+    {
+        QString k1 = AConcurrent::Private::key(this, "key1");
+        QString k2 = AConcurrent::Private::key(this, "key2");
+
+        QVERIFY(k1 != k2);
+        qDebug() << k1 << k2;
+
+    }
+
+
+    auto worker = [&](int value) {
+        Automator::wait(50);
+        return value * value;
+    };
+
+    int count = 0;
+
+    auto cleanup = [&]() {
+        count++;
+    };
+
+    {
+        QCOMPARE(AConcurrent::Private::debounceStore.size(), 0);
+        auto f1 = QtConcurrent::run(worker, 2);
+        AConcurrent::debounce(this, "single", f1, cleanup);
+        QCOMPARE(AConcurrent::Private::debounceStore.size(), 1);
+        await(f1);
+        Automator::wait(50);
+
+        QCOMPARE(count , 1);
+        QCOMPARE(AConcurrent::Private::debounceStore.size(), 0);
+    }
+
+    {
+        QList<int> seq;
+        // Calling twice, only the last function will be executed.
+        QString key = "double";
+        auto f1 = QtConcurrent::run(worker, 3);
+        AConcurrent::debounce(this, key, f1, [&]() {
+            seq << 1;
+            cleanup();
+        });
+
+        QCOMPARE(AConcurrent::Private::debounceStore.size(), 1);
+
+        auto f2 = QtConcurrent::run(worker, 4);
+        AConcurrent::debounce(this, key, f2, [&]() {
+            seq << 2;
+            cleanup();
+        });
+        QCOMPARE(AConcurrent::Private::debounceStore.size(), 1);
+
+        auto combined = AsyncFuture::combine();
+        combined << f1 << f2;
+        await(combined.future());
+
+        QCOMPARE(count , 2);
+        Automator::wait(50);
+        QCOMPARE(AConcurrent::Private::debounceStore.size(), 0);
+        QCOMPARE(seq.size(), 1);
+        QCOMPARE(seq[0], 2);
+    }
+
+    {
+        // Verify cancel
+        QString key = "cancel";
+        auto defer = AsyncFuture::deferred<void>();
+        AConcurrent::debounce(this, key, defer.future(), cleanup);
+        QCOMPARE(AConcurrent::Private::debounceStore.size(), 1);
+        defer.cancel();
+        Automator::wait(50);
+        QCOMPARE(AConcurrent::Private::debounceStore.size(), 0);
+        QCOMPARE(count , 2);
+    }
+
 
 }
 
