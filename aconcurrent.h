@@ -255,8 +255,10 @@ namespace AConcurrent {
                     finishedCount = 0;
                     index = 0;
                     futures.resize(source.size());
+                }
 
-                    int count = qMin(pool->maxThreadCount(), sequence.count());
+                void start() {
+                    int count = qMin(pool->maxThreadCount(), source.count());
 
                     runOnMainThread([=]() {
                         int c = count;
@@ -267,7 +269,7 @@ namespace AConcurrent {
                 }
 
                 void enqueue() {
-                    auto future = QtConcurrent::run(worker, source[index]);
+                    auto future = QtConcurrent::run(pool.data(), worker, source[index]);
                     futures[index] = future;
                     index++;
                     AsyncFuture::observe(future).subscribe([=]() {
@@ -305,7 +307,9 @@ namespace AConcurrent {
 
             template <typename Sequence, typename Functor>
             inline auto schedule(QThreadPool*pool, Sequence sequence, Functor functor) -> Scheduler<Sequence, Functor>* {
-                return new Scheduler<Sequence, Functor>(pool, sequence, functor);
+                auto res = new Scheduler<Sequence, Functor>(pool, sequence, functor);
+                res->start();
+                return res;
             }
         }
     }
