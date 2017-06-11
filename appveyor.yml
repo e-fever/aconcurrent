@@ -24,4 +24,4 @@ build_script:
   - nmake
   - dir /w
   - dir release /w
-  - release\aconcurrentunittests
+  - release\aconcurrent

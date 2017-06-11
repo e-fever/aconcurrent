@@ -19,7 +19,8 @@ include($$ROOTDIR/aconcurrent.pri)
 
 DISTFILES +=     qpm.json \    
     ../../README.md \
-    ../../qpm.json
+    ../../qpm.json \
+    ../../appveyor.yml
 
 HEADERS += \    
     aconcurrenttests.h
