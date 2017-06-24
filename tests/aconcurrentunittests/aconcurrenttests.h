@@ -18,6 +18,8 @@ private slots:
 
     void test_mapped_in_non_main_thread();
 
+    void test_mapped_progress();
+
     void test_blockingMapped();
 
     void test_queue();

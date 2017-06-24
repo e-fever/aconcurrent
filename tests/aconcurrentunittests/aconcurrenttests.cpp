@@ -1,6 +1,7 @@
 #include <QQmlApplicationEngine>
 #include <QTest>
 #include <Automator>
+#include <QFutureWatcher>
 #include <aconcurrent.h>
 #include "aconcurrenttests.h"
 
@@ -187,6 +188,46 @@ void AConcurrentTests::test_mapped_in_non_main_thread()
     };
 
     AConcurrent::await(QtConcurrent::run(&pool, thread));
+}
+
+void AConcurrentTests::test_mapped_progress()
+{
+
+    auto worker = [&](int value) -> int {
+        Automator::wait(50);
+        return value * value;
+    };
+
+    int count = 50;
+    QList<int> input;
+    QList<int> expected;
+    QList<int> progressList;
+
+    for (int i = 0 ; i < count ; i++) {
+        input << (i+1);
+        expected << (i+1) * (i+1);
+    }
+
+    QFuture<int> future = AConcurrent::mapped(&pool, input, worker);
+    QCOMPARE(future.progressValue(), 0);
+    QFutureWatcher<int> watcher;
+
+    connect(&watcher, &QFutureWatcher<int>::progressValueChanged, [&] (int value) {
+        progressList << value;
+    });
+    watcher.setFuture(future);
+
+    AConcurrent::await(future);
+    Automator::wait(50);
+    QCOMPARE(future.results().size(), count);
+    QCOMPARE(future.progressValue(), count);
+
+    QCOMPARE(progressList.last(), count);
+    for (int i = 0 ; i < progressList.size() - 1;i++) {
+        QVERIFY(progressList[i] < progressList[i+1]);
+    }
+
+
 }
 
 void AConcurrentTests::test_blockingMapped()

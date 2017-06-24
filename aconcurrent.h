@@ -99,6 +99,15 @@ namespace AConcurrent {
 
         extern QMap<QString, QFuture<void>> debounceStore;
 
+        /// A custom AsyncFuture::Deferred that has exported the AsyncFuture::Private::DeferredFuture object
+        template <typename T>
+        class CustomDeferred : public AsyncFuture::Deferred<T> {
+        public:
+            AsyncFuture::Private::DeferredFuture<T>* deferred() {
+                return AsyncFuture::Deferred<T>::deferredFuture.data();
+            }
+        };
+
     } // End of Private namespace
 
     /// Run a function on main thread. If it is already in main thread, it will be executed in next tick.
@@ -241,7 +250,7 @@ namespace AConcurrent {
         return queue;
     }
 
-    namespace Private {
+    namespace Private {    
         namespace Scheduler {
 
             template <typename Sequence, typename Functor>
@@ -258,6 +267,7 @@ namespace AConcurrent {
                 }
 
                 void start() {
+                    defer.deferred()->setProgressRange(0, source.count());
                     int count = qMin(pool->maxThreadCount(), source.count());
 
                     runOnMainThread([=]() {
@@ -279,6 +289,7 @@ namespace AConcurrent {
 
                 void onFutureFinished() {
                     finishedCount++;
+                    defer.deferred()->setProgressValue(finishedCount);
 
                     if (index < source.size()) {
                         enqueue();
@@ -299,7 +310,7 @@ namespace AConcurrent {
                 Sequence source;
                 std::function<RET(ARG)> worker;
                 QPointer<QThreadPool> pool;
-                AsyncFuture::Deferred<RET> defer;
+                AConcurrent::Private::CustomDeferred<RET> defer;
                 QVector<QFuture<RET>> futures;
                 int finishedCount;
                 int index;
