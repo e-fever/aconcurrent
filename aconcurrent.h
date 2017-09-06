@@ -176,7 +176,7 @@ namespace AConcurrent {
     }
 
     template <typename ARG, typename RET>
-    class Queue {
+    class Pipeline {
     private:
         class Context {
         public:
@@ -190,7 +190,7 @@ namespace AConcurrent {
         };
 
     public:
-        Queue(QThreadPool* pool, std::function<RET(ARG)> worker) : d(QSharedPointer<Context>::create()) {
+        Pipeline(QThreadPool* pool, std::function<RET(ARG)> worker) : d(QSharedPointer<Context>::create()) {
             d->pool = pool;
             d->worker = worker;
             d->started = false;
@@ -237,17 +237,16 @@ namespace AConcurrent {
     };
 
     template <typename Functor>
-    inline auto queue(QThreadPool*pool, Functor func) -> Queue<
+    inline auto pipeline(QThreadPool*pool, Functor func) -> Pipeline<
         typename Private::function_traits<Functor>::template arg<0>::type,
         typename Private::function_traits<Functor>::result_type
     >{
-        Queue<
+        Pipeline<
                 typename Private::function_traits<Functor>::template arg<0>::type,
                 typename Private::function_traits<Functor>::result_type
-            > queue(pool, func);
+            > res(pool, func);
 
-
-        return queue;
+        return res;
     }
 
     namespace Private {    
@@ -287,6 +286,12 @@ namespace AConcurrent {
                     });
                 }
 
+
+                QFuture<RET> future() {
+                    return defer.future();
+                }
+
+            private:
                 void onFutureFinished() {
                     finishedCount++;
                     defer.deferred()->setProgressValue(finishedCount);
@@ -302,11 +307,6 @@ namespace AConcurrent {
                     }
                 }
 
-                QFuture<RET> future() {
-                    return defer.future();
-                }
-
-            private:
                 Sequence source;
                 std::function<RET(ARG)> worker;
                 QPointer<QThreadPool> pool;
