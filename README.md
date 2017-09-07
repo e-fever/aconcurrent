@@ -18,8 +18,6 @@ API
 
 **QFuture<R> AConcurrent::blockingMapped(Sequence sequence, Functor worker)**
 
-**Queue<T> AConcurrent::pipeline(Functor worker)**
-
-Create a pipeline to run a sequence of tasks, but only one task will be executed at a time.
+**Queue<T> AConcurrent::queue(Functor worker)**
 
 **void AConcurrent::debounce(context, key, future, functor)**

@@ -255,7 +255,7 @@ void AConcurrentTests::test_queue()
         return value * value;
     };
 
-    auto queue = AConcurrent::pipeline(QThreadPool::globalInstance(), worker);
+    auto queue = AConcurrent::queue(QThreadPool::globalInstance(), worker);
     QCOMPARE(queue.count(), 0);
     QCOMPARE(count, 0);
 
