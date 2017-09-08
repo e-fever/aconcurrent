@@ -423,3 +423,53 @@ void AConcurrentTests::test_debounce()
 
 }
 
+void AConcurrentTests::test_pipeline()
+{
+    int count = 0;
+    auto worker = [&](int value) -> qreal {
+        Automator::wait(50);
+        count++;
+        return value * value;
+    };
+
+    auto pipeline = AConcurrent::pipeline(QThreadPool::globalInstance(), worker);
+
+    auto result = pipeline.future();
+    QCOMPARE(result.progressValue(), 0);
+    QCOMPARE(result.progressMinimum(), 0);
+    QCOMPARE(result.progressMaximum(), 0);
+    QCOMPARE(result.isFinished(), false);
+
+    auto future = pipeline.add(0);
+
+    AConcurrent::await(future);
+    Automator::wait(100);
+
+    QCOMPARE(future.isFinished(), true);
+    QCOMPARE(future.result(), 0.0);
+
+    QCOMPARE(result.progressValue(), 1);
+    QCOMPARE(result.progressMinimum(), 0);
+    QCOMPARE(result.progressMaximum(), 1);
+    QCOMPARE(result.isFinished(), false);
+
+    future = pipeline.add(1);
+    AConcurrent::await(future);
+
+    QCOMPARE(future.isFinished(), true);
+    QCOMPARE(future.result(), 1.0);
+
+    QCOMPARE(result.progressValue(), 2);
+    QCOMPARE(result.progressMinimum(), 0);
+    QCOMPARE(result.progressMaximum(), 2);
+    QCOMPARE(result.isFinished(), false);
+
+    result.cancel();
+
+    QCOMPARE(result.progressValue(), 2);
+    QCOMPARE(result.progressMinimum(), 0);
+    QCOMPARE(result.progressMaximum(), 2);
+    QCOMPARE(result.isCanceled(), true);
+
+}
+

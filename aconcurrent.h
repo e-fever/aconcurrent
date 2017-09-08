@@ -250,6 +250,87 @@ namespace AConcurrent {
         return queue;
     }
 
+    template <typename ARG, typename RET>
+    class Pipeline {
+    private:
+        class Context {
+        public:
+            QPointer<QThreadPool> pool;
+            std::function<RET(ARG)> worker;
+            int next;
+            QList<RET> input;
+            int running;
+
+            AsyncFuture::Deferred<RET> defer;
+            QList<AsyncFuture::Deferred<RET>> defers;
+        };
+
+        QSharedPointer<Context> d;
+
+        void run() {
+            if (d->running >= d->pool->maxThreadCount() || d->next >= d->input.size()) {
+                return;
+            }
+
+            ARG input = d->input.at(d->next);
+            auto defer = d->defers.at(d->next);
+            d->next++;
+            d->running++;
+
+            auto future = QtConcurrent::run(d->pool, d->worker, input);
+            defer.complete(future);
+            defer.subscribe([=]() {
+                int progressValue = d->defer.future().progressValue();
+                d->defer.setProgressValue(progressValue+1);
+                d->running--;
+                run();
+            });
+        }
+
+    public:
+        Pipeline(QThreadPool* pool, std::function<RET(ARG)> worker) : d(QSharedPointer<Context>::create()) {
+            d->pool = pool;
+            d->worker = worker;
+            d->next = 0;
+            d->running = 0;
+            d->defer.subscribe([]() {}, [](){
+               qDebug() << "cancelled";
+            });
+
+        }
+
+        QFuture<RET> add(ARG value) {
+            auto defer = AsyncFuture::Deferred<RET>();
+            runOnMainThread([=]() {
+                d->input.append(value);
+                d->defers << defer;
+                d->defer.setProgressRange(0, d->defers.size());
+                if (d->running < d->pool->maxThreadCount()) {
+                    run();
+                }
+            });
+            return defer.future();
+        }
+
+        QFuture<RET> future() {
+            return d->defer.future();
+        }
+
+    };
+
+    template <typename Functor>
+    inline auto pipeline(QThreadPool*pool, Functor func) -> Pipeline<
+        typename Private::function_traits<Functor>::template arg<0>::type,
+        typename Private::function_traits<Functor>::result_type
+    >{
+        Pipeline<
+                typename Private::function_traits<Functor>::template arg<0>::type,
+                typename Private::function_traits<Functor>::result_type
+            > res(pool, func);
+
+        return res;
+    }
+
     namespace Private {    
         namespace Scheduler {
 

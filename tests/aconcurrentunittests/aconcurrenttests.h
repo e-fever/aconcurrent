@@ -28,6 +28,8 @@ private slots:
 
     void test_debounce();
 
+    void test_pipeline();
+
 private:
 
     QThreadPool pool;
