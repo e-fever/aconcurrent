@@ -106,6 +106,14 @@ namespace AConcurrent {
             AsyncFuture::Private::DeferredFuture<T>* deferred() {
                 return AsyncFuture::Deferred<T>::deferredFuture.data();
             }
+
+            void setProgressValue(int value) {
+                AsyncFuture::Deferred<T>::deferredFuture->setProgressValue(value);
+            }
+
+            void setProgressRange(int min, int max) {
+                AsyncFuture::Deferred<T>::deferredFuture->setProgressRange(min, max);
+            }
         };
 
     } // End of Private namespace
@@ -261,7 +269,7 @@ namespace AConcurrent {
             QList<RET> input;
             int running;
 
-            AsyncFuture::Deferred<RET> defer;
+            Private::CustomDeferred<RET> defer;
             QList<AsyncFuture::Deferred<RET>> defers;
         };
 
@@ -348,7 +356,7 @@ namespace AConcurrent {
                 }
 
                 void start() {
-                    defer.deferred()->setProgressRange(0, source.count());
+                    defer.setProgressRange(0, source.count());
                     int count = qMin(pool->maxThreadCount(), source.count());
 
                     runOnMainThread([=]() {
@@ -370,7 +378,7 @@ namespace AConcurrent {
 
                 void onFutureFinished() {
                     finishedCount++;
-                    defer.deferred()->setProgressValue(finishedCount);
+                    defer.setProgressValue(finishedCount);
 
                     if (index < source.size()) {
                         enqueue();
