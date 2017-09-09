@@ -447,6 +447,7 @@ void AConcurrentTests::test_pipeline()
 
     QCOMPARE(future.isFinished(), true);
     QCOMPARE(future.result(), 0.0);
+    QCOMPARE(result.resultCount(), 1);
 
     QCOMPARE(result.progressValue(), 1);
     QCOMPARE(result.progressMinimum(), 0);
@@ -464,12 +465,10 @@ void AConcurrentTests::test_pipeline()
     QCOMPARE(result.progressMaximum(), 2);
     QCOMPARE(result.isFinished(), false);
 
-    result.cancel();
+    QCOMPARE(result.resultCount(), 2);
 
-    QCOMPARE(result.progressValue(), 2);
-    QCOMPARE(result.progressMinimum(), 0);
-    QCOMPARE(result.progressMaximum(), 2);
-    QCOMPARE(result.isCanceled(), true);
+    QCOMPARE(result.resultAt(0), 0.0);
+    QCOMPARE(result.resultAt(1), 1.0);
 
 }
 

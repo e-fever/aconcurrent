@@ -99,20 +99,31 @@ namespace AConcurrent {
 
         extern QMap<QString, QFuture<void>> debounceStore;
 
-        /// A custom AsyncFuture::Deferred that has exported the AsyncFuture::Private::DeferredFuture object
         template <typename T>
         class CustomDeferred : public AsyncFuture::Deferred<T> {
         public:
-            AsyncFuture::Private::DeferredFuture<T>* deferred() {
-                return AsyncFuture::Deferred<T>::deferredFuture.data();
-            }
-
             void setProgressValue(int value) {
                 AsyncFuture::Deferred<T>::deferredFuture->setProgressValue(value);
             }
 
             void setProgressRange(int min, int max) {
                 AsyncFuture::Deferred<T>::deferredFuture->setProgressRange(min, max);
+            }
+
+            void reportResult(T value, int index) {
+                AsyncFuture::Deferred<T>::deferredFuture->reportResult(value, index);
+            }
+        };
+
+        template <>
+        class CustomDeferred<void> : public AsyncFuture::Deferred<void> {
+        public:
+            void setProgressValue(int value) {
+                AsyncFuture::Deferred<void>::deferredFuture->setProgressValue(value);
+            }
+
+            void setProgressRange(int min, int max) {
+                AsyncFuture::Deferred<void>::deferredFuture->setProgressRange(min, max);
             }
         };
 
@@ -280,6 +291,7 @@ namespace AConcurrent {
                 return;
             }
 
+            int index = d->next;
             ARG input = d->input.at(d->next);
             auto defer = d->defers.at(d->next);
             d->next++;
@@ -289,6 +301,7 @@ namespace AConcurrent {
             defer.complete(future);
             defer.subscribe([=]() {
                 int progressValue = d->defer.future().progressValue();
+                d->defer.reportResult(defer.future().result(), index);
                 d->defer.setProgressValue(progressValue+1);
                 d->running--;
                 run();
