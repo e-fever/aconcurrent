@@ -30,6 +30,9 @@ private slots:
 
     void test_pipeline();
 
+    void test_pipeline_cancel();
+
+
 private:
 
     QThreadPool pool;

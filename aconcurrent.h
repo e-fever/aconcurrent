@@ -281,7 +281,7 @@ namespace AConcurrent {
             int running;
 
             Private::CustomDeferred<RET> defer;
-            QList<AsyncFuture::Deferred<RET>> defers;
+            QList<AsyncFuture::Deferred<RET>> runnables;
         };
 
         QSharedPointer<Context> d;
@@ -293,7 +293,7 @@ namespace AConcurrent {
 
             int index = d->next;
             ARG input = d->input.at(d->next);
-            auto defer = d->defers.at(d->next);
+            auto defer = d->runnables.at(d->next);
             d->next++;
             d->running++;
 
@@ -304,6 +304,9 @@ namespace AConcurrent {
                 d->defer.reportResult(defer.future().result(), index);
                 d->defer.setProgressValue(progressValue+1);
                 d->running--;
+                if (d->defer.future().isFinished() || d->defer.future().isCanceled()) {
+                    return;
+                }
                 run();
             });
         }
@@ -314,18 +317,25 @@ namespace AConcurrent {
             d->worker = worker;
             d->next = 0;
             d->running = 0;
-            d->defer.subscribe([]() {}, [](){
-               qDebug() << "cancelled";
+            d->defer.subscribe([]() {}, [=](){
+                for (int i = d->next ; i < d->runnables.size(); i++) {
+                    d->runnables[i].cancel();
+                }
             });
-
         }
 
         QFuture<RET> add(ARG value) {
             auto defer = AsyncFuture::Deferred<RET>();
             runOnMainThread([=]() {
+                if (d->defer.future().isFinished() || d->defer.future().isCanceled()) {
+                    auto d = defer;
+                    d.cancel();
+                    return;
+                }
+
                 d->input.append(value);
-                d->defers << defer;
-                d->defer.setProgressRange(0, d->defers.size());
+                d->runnables << defer;
+                d->defer.setProgressRange(0, d->runnables.size());
                 if (d->running < d->pool->maxThreadCount()) {
                     run();
                 }
@@ -337,6 +347,15 @@ namespace AConcurrent {
             return d->defer.future();
         }
 
+        void complete() {
+            runOnMainThread([=]() {
+                QList<RET> result;
+                for (int i = 0 ; i < d->runnables.size() ; i++) {
+                    result << d->runnables[i].future().result();
+                }
+                d->defer.complete(result);
+            });
+        }
     };
 
     template <typename Functor>
