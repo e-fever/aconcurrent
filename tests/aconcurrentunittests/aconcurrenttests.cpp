@@ -423,7 +423,7 @@ void AConcurrentTests::test_debounce()
 
 }
 
-void AConcurrentTests::test_pipeline()
+void AConcurrentTests::test_pipeline_close()
 {
     int count = 0;
     auto worker = [&](int value) -> qreal {
@@ -432,7 +432,10 @@ void AConcurrentTests::test_pipeline()
         return value * value;
     };
 
-    auto pipeline = AConcurrent::pipeline(QThreadPool::globalInstance(), worker);
+    QThreadPool pool;
+    pool.setMaxThreadCount(2);
+
+    auto pipeline = AConcurrent::pipeline(&pool, worker);
 
     auto result = pipeline.future();
     QCOMPARE(result.progressValue(), 0);
@@ -471,9 +474,19 @@ void AConcurrentTests::test_pipeline()
     QCOMPARE(result.resultAt(1), 1.0);
 
     /// Complete the pipeline. No more tasks can be added.
-    pipeline.complete();
-    Automator::wait(100);
+    pipeline.add(2);
+    pipeline.add(3);
+
+    pipeline.close();
+    Automator::wait(200);
     QCOMPARE(result.isFinished(), true);
+    QCOMPARE(result.progressValue(), 4);
+    QCOMPARE(result.progressMinimum(), 0);
+    QCOMPARE(result.progressMaximum(), 4);
+
+    QCOMPARE(result.resultCount(), 4);
+
+    QCOMPARE(result.results().size(), 4);
 
     future = pipeline.add(2);
     Automator::wait(10);
@@ -534,6 +547,6 @@ void AConcurrentTests::test_pipeline_cancel()
     QCOMPARE(futures[3].isFinished(), true);
     QCOMPARE(futures[4].isCanceled(), true);
     QCOMPARE(futures[5].isCanceled(), true);
-
+    QCOMPARE(count, 4);
 }
 

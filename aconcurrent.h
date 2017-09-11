@@ -113,6 +113,10 @@ namespace AConcurrent {
             void reportResult(T value, int index) {
                 AsyncFuture::Deferred<T>::deferredFuture->reportResult(value, index);
             }
+
+            void finish() {
+                AsyncFuture::Deferred<T>::deferredFuture->complete();
+            }
         };
 
         template <>
@@ -124,6 +128,10 @@ namespace AConcurrent {
 
             void setProgressRange(int min, int max) {
                 AsyncFuture::Deferred<void>::deferredFuture->setProgressRange(min, max);
+            }
+
+            void finish() {
+                AsyncFuture::Deferred<void>::deferredFuture->complete();
             }
         };
 
@@ -278,12 +286,18 @@ namespace AConcurrent {
             std::function<RET(ARG)> worker;
             int next;
             QList<RET> input;
+
+            /// no. of running tasks
             int running;
 
             Private::CustomDeferred<RET> defer;
-            QList<AsyncFuture::Deferred<RET>> runnables;
+
+            QList<AsyncFuture::Deferred<RET>> tasks;
+
+            bool closed;
         };
 
+        /// Access is not allowed out of the main thread except the initialization
         QSharedPointer<Context> d;
 
         void run() {
@@ -293,7 +307,7 @@ namespace AConcurrent {
 
             int index = d->next;
             ARG input = d->input.at(d->next);
-            auto defer = d->runnables.at(d->next);
+            auto defer = d->tasks.at(d->next);
             d->next++;
             d->running++;
 
@@ -304,6 +318,12 @@ namespace AConcurrent {
                 d->defer.reportResult(defer.future().result(), index);
                 d->defer.setProgressValue(progressValue+1);
                 d->running--;
+
+                if (d->closed && d->running == 0 && d->next >= d->tasks.size()) {
+                    d->defer.finish();
+                    return;
+                }
+
                 if (d->defer.future().isFinished() || d->defer.future().isCanceled()) {
                     return;
                 }
@@ -317,9 +337,10 @@ namespace AConcurrent {
             d->worker = worker;
             d->next = 0;
             d->running = 0;
+            d->closed = false;
             d->defer.subscribe([]() {}, [=](){
-                for (int i = d->next ; i < d->runnables.size(); i++) {
-                    d->runnables[i].cancel();
+                for (int i = d->next ; i < d->tasks.size(); i++) {
+                    d->tasks[i].cancel();
                 }
             });
         }
@@ -327,15 +348,17 @@ namespace AConcurrent {
         QFuture<RET> add(ARG value) {
             auto defer = AsyncFuture::Deferred<RET>();
             runOnMainThread([=]() {
-                if (d->defer.future().isFinished() || d->defer.future().isCanceled()) {
+                if (d->defer.future().isFinished() ||
+                    d->defer.future().isCanceled() ||
+                    d->closed) {
                     auto d = defer;
                     d.cancel();
                     return;
                 }
 
                 d->input.append(value);
-                d->runnables << defer;
-                d->defer.setProgressRange(0, d->runnables.size());
+                d->tasks << defer;
+                d->defer.setProgressRange(0, d->tasks.size());
                 if (d->running < d->pool->maxThreadCount()) {
                     run();
                 }
@@ -347,13 +370,10 @@ namespace AConcurrent {
             return d->defer.future();
         }
 
-        void complete() {
+        /// Close the pipeline. No more tasks could be added. The contained future will be terminated automatically once all the tasks finished.
+        void close() {
             runOnMainThread([=]() {
-                QList<RET> result;
-                for (int i = 0 ; i < d->runnables.size() ; i++) {
-                    result << d->runnables[i].future().result();
-                }
-                d->defer.complete(result);
+                d->closed = true;
             });
         }
     };
