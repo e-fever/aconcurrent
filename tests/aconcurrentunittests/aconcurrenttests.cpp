@@ -499,9 +499,15 @@ void AConcurrentTests::test_pipeline_close()
 void AConcurrentTests::test_pipeline_cancel()
 {
     int count = 0;
+    QMutex mutex;
+    QSemaphore semaphore(6);
+    semaphore.acquire(6);
+
     auto worker = [&](int value) -> qreal {
-        Automator::wait(100);
+        semaphore.acquire();
+        mutex.lock();
         count++;
+        mutex.unlock();
         return value * value;
     };
 
@@ -522,7 +528,8 @@ void AConcurrentTests::test_pipeline_cancel()
     QCOMPARE(result.progressMinimum(), 0);
     QCOMPARE(result.progressMaximum(), 6);
 
-    Automator::wait(100);
+    semaphore.release(2);
+    Automator::wait(10);
 
     QCOMPARE(result.progressValue(), 2);
     QCOMPARE(result.progressMinimum(), 0);
@@ -535,7 +542,9 @@ void AConcurrentTests::test_pipeline_cancel()
     QCOMPARE(future.isFinished(), true);
     QCOMPARE(future.isCanceled(), true);
 
-    Automator::wait(200);
+    semaphore.release(4);
+
+    Automator::wait(100);
 
     QCOMPARE(result.progressValue(), 2);
     QCOMPARE(result.progressMinimum(), 0);
