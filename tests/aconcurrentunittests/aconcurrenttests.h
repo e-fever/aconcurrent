@@ -30,6 +30,8 @@ private slots:
 
     void test_pipeline_close();
 
+    void test_pipeline_close_after_finished();
+
     void test_pipeline_cancel();
 
 

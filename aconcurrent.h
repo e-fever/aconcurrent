@@ -374,6 +374,11 @@ namespace AConcurrent {
         void close() {
             runOnMainThread([=]() {
                 d->closed = true;
+
+                if (d->closed && d->running == 0 && d->next >= d->tasks.size()) {
+                    d->defer.finish();
+                }
+
             });
         }
     };

@@ -493,6 +493,40 @@ void AConcurrentTests::test_pipeline_close()
     QCOMPARE(future.isFinished(), true);
     QCOMPARE(future.isCanceled(), true);
 
+}
+
+void AConcurrentTests::test_pipeline_close_after_finished()
+{
+    int count = 0;
+    QMutex mutex;
+
+    auto worker = [&](int value) -> qreal {
+        mutex.lock();
+        count++;
+        mutex.unlock();
+        return value * value;
+    };
+
+    QThreadPool pool;
+    pool.setMaxThreadCount(2);
+
+    auto pipeline = AConcurrent::pipeline(&pool, worker);
+
+    auto result = pipeline.future();
+    QList<QFuture<qreal>> futures;
+
+    for (int i = 0 ; i < 6;i++) {
+        futures << pipeline.add(i);
+    }
+
+    Automator::wait(100);
+    QCOMPARE(count, 6);
+    QCOMPARE(result.isFinished(), false);
+
+    pipeline.close();
+    Automator::wait(100);
+    QCOMPARE(result.isFinished(), true);
+    QCOMPARE(result.results().size(), 6);
 
 }
 
