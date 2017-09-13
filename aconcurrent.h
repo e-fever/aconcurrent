@@ -135,9 +135,23 @@ namespace AConcurrent {
             }
         };
 
+        template <typename T>
+        inline void pipelineReportResult(CustomDeferred<T>& defer, int index, QFuture<T> future) {
+            auto value = future.result();
+            defer.reportResult(value, index);
+        }
+
+        template <>
+        inline void pipelineReportResult<void>(CustomDeferred<void>& defer, int index, QFuture<void> future) {
+            Q_UNUSED(defer);
+            Q_UNUSED(index);
+            Q_UNUSED(future);
+        }
+
+
     } // End of Private namespace
 
-    /// Run a function on main thread. If it is already in main thread, it will be executed in next tick.
+    /// Run a function on main thread. If the current thread is main thread, it will be executed in next tick.
     template <typename Functor>
     inline auto runOnMainThread(Functor func) -> QFuture<typename Private::function_traits<Functor>::result_type> {
         typedef typename Private::function_traits<Functor>::result_type RET;
@@ -285,7 +299,7 @@ namespace AConcurrent {
             QPointer<QThreadPool> pool;
             std::function<RET(ARG)> worker;
             int next;
-            QList<RET> input;
+            QList<ARG> input;
 
             /// no. of running tasks
             int running;
@@ -315,7 +329,8 @@ namespace AConcurrent {
             defer.complete(future);
             defer.subscribe([=]() {
                 int progressValue = d->defer.future().progressValue();
-                d->defer.reportResult(defer.future().result(), index);
+                Private::pipelineReportResult<RET>(d->defer, index, defer.future());
+
                 d->defer.setProgressValue(progressValue+1);
                 d->running--;
 

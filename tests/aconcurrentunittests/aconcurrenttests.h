@@ -34,6 +34,8 @@ private slots:
 
     void test_pipeline_cancel();
 
+    void test_pipeline_void();
+
 
 private:
 

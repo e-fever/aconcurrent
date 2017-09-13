@@ -593,3 +593,30 @@ void AConcurrentTests::test_pipeline_cancel()
     QCOMPARE(count, 4);
 }
 
+void AConcurrentTests::test_pipeline_void()
+{
+    int count = 0;
+
+    QMutex mutex;
+    auto worker = [&](int value) -> void {
+        Q_UNUSED(value);
+        mutex.lock();
+        count++;
+        mutex.unlock();
+    };
+
+    QThreadPool pool;
+    pool.setMaxThreadCount(2);
+
+    auto pipeline = AConcurrent::pipeline(&pool, worker);
+
+    for (int i = 0 ; i < 6;i++) {
+        pipeline.add(i);
+    }
+    pipeline.close();
+
+    AConcurrent::await(pipeline.future());
+
+    QCOMPARE(count, 6);
+}
+
