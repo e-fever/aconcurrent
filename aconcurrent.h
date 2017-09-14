@@ -260,7 +260,7 @@ namespace AConcurrent {
                 runOnMainThreadVoid([=]() {
                     closed = true;
 
-                    if (closed && running == 0 && next >= tasks.size()) {
+                    if (running == 0 && next >= tasks.size()) {
                         defer.finish();
                         checkDelete();
                     }

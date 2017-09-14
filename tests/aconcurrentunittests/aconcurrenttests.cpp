@@ -608,15 +608,21 @@ void AConcurrentTests::test_pipeline_void()
     QThreadPool pool;
     pool.setMaxThreadCount(2);
 
-    auto pipeline = AConcurrent::pipeline(&pool, worker);
+    {
+        auto pipeline = AConcurrent::pipeline(&pool, worker);
 
-    for (int i = 0 ; i < 6;i++) {
-        pipeline.add(i);
+        for (int i = 0 ; i < 6;i++) {
+            pipeline.add(i);
+        }
+        pipeline.close();
+
+        QCOMPARE(pipeline.future().isFinished(), false);
+        AConcurrent::await(pipeline.future());
+        QCOMPARE(pipeline.future().isFinished(), true);
+
+        QCOMPARE(count, 6);
     }
-    pipeline.close();
-
-    AConcurrent::await(pipeline.future());
-
-    QCOMPARE(count, 6);
+    // Execute event loop and make sure the memory allocated for pipeline is released.
+    Automator::wait(100);
 }
 
