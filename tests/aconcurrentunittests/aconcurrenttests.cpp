@@ -69,9 +69,11 @@ void AConcurrentTests::test_mapped()
 
     QFuture<int> future = AConcurrent::mapped(&pool, input, worker);
 
+    QCOMPARE(future.isFinished(), false);
     AConcurrent::await(future);
 
     QVERIFY(future.isFinished());
+    QCOMPARE(future.resultCount(), count);
 
     QList<int> result;
     result = future.results();
@@ -423,6 +425,28 @@ void AConcurrentTests::test_debounce()
 
 }
 
+void AConcurrentTests::test_pipeline()
+{
+    auto worker = [&](int value) -> qreal {
+        return value * value;
+    };
+
+    QFuture<qreal> future;
+    {
+        auto pipeline = AConcurrent::pipeline(&pool, worker);
+        pipeline.add(0);
+        pipeline.close();
+
+        future = pipeline.future();
+        QCOMPARE(future.isFinished(), false);
+    }
+    QCOMPARE(future.isFinished(), false);
+
+    AConcurrent::await(future);
+    QCOMPARE(future.isFinished(), true);
+
+}
+
 void AConcurrentTests::test_pipeline_close()
 {
     int count = 0;
@@ -437,6 +461,7 @@ void AConcurrentTests::test_pipeline_close()
 
     auto pipeline = AConcurrent::pipeline(&pool, worker);
 
+    QCOMPARE(pipeline.future().isFinished(), false);
     auto result = pipeline.future();
     QCOMPARE(result.progressValue(), 0);
     QCOMPARE(result.progressMinimum(), 0);
@@ -528,6 +553,41 @@ void AConcurrentTests::test_pipeline_close_after_finished()
     QCOMPARE(result.isFinished(), true);
     QCOMPARE(result.results().size(), 6);
 
+}
+
+void AConcurrentTests::test_pipeline_close_after_added()
+{
+    QSemaphore semaphore(6);
+    semaphore.acquire(6);
+    int count = 0;
+    QMutex mutex;
+
+    auto worker = [&](int value) -> qreal {
+        semaphore.acquire(1);
+        mutex.lock();
+        count++;
+        mutex.unlock();
+        return value * value;
+    };
+
+    QThreadPool pool;
+    pool.setMaxThreadCount(2);
+
+    auto pipeline = AConcurrent::pipeline(&pool, worker);
+    QList<qreal> expected;
+    for (int i = 0 ; i < 6; i++) {
+        pipeline.add(i);
+        expected << i * i;
+    }
+    pipeline.close();
+
+    semaphore.release(6);
+
+    AConcurrent::await(pipeline.future());
+
+    QList<qreal> results = pipeline.future().results();
+
+    QVERIFY(expected == results);
 }
 
 void AConcurrentTests::test_pipeline_cancel()

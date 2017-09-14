@@ -28,9 +28,13 @@ private slots:
 
     void test_debounce();
 
+    void test_pipeline();
+
     void test_pipeline_close();
 
     void test_pipeline_close_after_finished();
+
+    void test_pipeline_close_after_added();
 
     void test_pipeline_cancel();
 

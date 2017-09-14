@@ -1,5 +1,4 @@
-AConcurrent
-Enhance QtConcurrent via AsyncFuture
+Enhanced QtConcurrent based on AsyncFuture
 -------------------------------------
 
 Installation
@@ -9,6 +8,10 @@ Installation
 
 API
 ===
+
+```C++
+    #include <aconcurrent.h>
+```
 
 **QFuture<R> AConcurrent::runOnMainThread(Functor functor)**
 
@@ -20,8 +23,6 @@ Run a function on main thread. If the current thread is main thread, it will be 
 - It is cancelable
 
 **QFuture<R> AConcurrent::blockingMapped(Sequence sequence, Functor worker)**
-
-**Queue<T> AConcurrent::queue(Functor worker)**
 
 **void AConcurrent::debounce(context, key, future, functor)**
 

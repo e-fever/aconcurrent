@@ -430,6 +430,7 @@ namespace AConcurrent {
     class Pipeline {
 
         QSharedPointer<Private::PipelineContext<ARG, RET>> d;
+
     public:
         Pipeline(QThreadPool* pool, std::function<RET(ARG)> worker) : d(Private::PipelineContext<ARG, RET>::create(pool, worker)) {
         }
@@ -539,8 +540,18 @@ namespace AConcurrent {
 
     template <typename Sequence, typename Functor>
     inline auto mapped(QThreadPool*pool, Sequence input, Functor func) -> QFuture<typename Private::function_traits<Functor>::result_type>{
-        auto scheduler = Private::Scheduler::schedule(pool, input, func);
-        return scheduler->future();
+        auto handler = pipeline(pool, func);
+        for (int i = 0 ; i < input.size() ; i++) {
+            handler.add(input[i]);
+        }
+        handler.close();
+
+        return handler.future();
+    }
+
+    template <typename Sequence, typename Functor>
+    inline auto mapped(Sequence input, Functor func) -> QFuture<typename Private::function_traits<Functor>::result_type>{
+        return mapped(QThreadPool::globalInstance(), input, func);
     }
 
     template <typename Sequence, typename Functor>
