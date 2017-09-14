@@ -17,6 +17,13 @@
 namespace AConcurrent {
 
     namespace Private {
+
+        template <typename Functor>
+        inline void runOnMainThreadVoid(Functor func)  {
+            QObject tmp;
+            QObject::connect(&tmp, &QObject::destroyed, QCoreApplication::instance(), func, Qt::QueuedConnection);
+        }
+
         // Value is a wrapper of data structure which could contain <void> type.
         template <typename R>
         class Value {
@@ -148,10 +155,138 @@ namespace AConcurrent {
             Q_UNUSED(future);
         }
 
+        template <typename ARG, typename RET>
+        class PipelineContext {
+        private:
+            /// Variables access is not allowed out of the main thread except the initialization
+
+            QPointer<QThreadPool> pool;
+            std::function<RET(ARG)> worker;
+            int next;
+            QList<ARG> input;
+
+            /// no. of running tasks
+            int running;
+
+            Private::CustomDeferred<RET> defer;
+
+            QList<AsyncFuture::Deferred<RET>> tasks;
+
+            bool closed;
+
+            bool autoDelete;
+
+            void checkDelete() {
+                if (autoDelete) {
+                    runOnMainThreadVoid([=]() {
+                       delete this;
+                    });
+                }
+            }
+
+            void run() {
+                if (running >= pool->maxThreadCount() || next >= input.size()) {
+                    return;
+                }
+
+                int index = next;
+                ARG inputValue = input.at(next);
+                auto task = tasks.at(next);
+                next++;
+                running++;
+
+                auto future = QtConcurrent::run(pool, worker, inputValue);
+                task.complete(future);
+                task.subscribe([=]() {
+                    int progressValue = defer.future().progressValue();
+                    Private::pipelineReportResult<RET>(defer, index, task.future());
+
+                    defer.setProgressValue(progressValue+1);
+                    running--;
+
+                    if (closed && running == 0 && next >= tasks.size()) {
+                        defer.finish();
+                        checkDelete();
+                        return;
+                    }
+
+                    if (defer.future().isFinished() || defer.future().isCanceled()) {
+                        return;
+                    }
+                    run();
+                });
+            }
+
+        public:
+            PipelineContext(QThreadPool* pool, std::function<RET(ARG)> worker) : pool(pool), worker(worker){
+                next = 0;
+                running = 0;
+                closed = false;
+                autoDelete = false;
+                defer.subscribe([]() {}, [=](){
+                    for (int i = next ; i < tasks.size(); i++) {
+                        tasks[i].cancel();
+                    }
+                });
+            }
+
+            QFuture<RET> add(ARG value) {
+                auto res = AsyncFuture::Deferred<RET>();
+                runOnMainThreadVoid([=]() {
+                    if (defer.future().isFinished() ||
+                        defer.future().isCanceled() ||
+                        closed) {
+                        auto d = res;
+                        d.cancel();
+                        return;
+                    }
+
+                    input.append(value);
+                    tasks << res;
+                    defer.setProgressRange(0, tasks.size());
+                    if (running < pool->maxThreadCount()) {
+                        run();
+                    }
+                });
+                return res.future();
+            }
+
+            QFuture<RET> future() {
+                return defer.future();
+            }
+
+            /// Close the pipeline. No more tasks could be added. The contained future will be terminated automatically once all the tasks finished.
+            void close() {
+                runOnMainThreadVoid([=]() {
+                    closed = true;
+
+                    if (closed && running == 0 && next >= tasks.size()) {
+                        defer.finish();
+                        checkDelete();
+                    }
+
+                });
+            }
+
+            static QSharedPointer<PipelineContext<ARG,RET>> create(QThreadPool* pool, std::function<RET(ARG)> worker) {
+
+                auto deleter = [](PipelineContext<ARG,RET> *object) {
+                    runOnMainThreadVoid([=]() {
+                        object->autoDelete = true;
+                        object->close();
+                    });
+                };
+
+                QSharedPointer<PipelineContext<ARG,RET>> ptr(new PipelineContext<ARG,RET>(pool, worker), deleter);
+                return ptr;
+            }
+        };
+
 
     } // End of Private namespace
 
     /// Run a function on main thread. If the current thread is main thread, it will be executed in next tick.
+    /// It returns a QFuture to represent the result
     template <typename Functor>
     inline auto runOnMainThread(Functor func) -> QFuture<typename Private::function_traits<Functor>::result_type> {
         typedef typename Private::function_traits<Functor>::result_type RET;
@@ -293,104 +428,26 @@ namespace AConcurrent {
 
     template <typename ARG, typename RET>
     class Pipeline {
-    private:
-        /// Access is not allowed out of the main thread except the initialization
 
-        QPointer<QThreadPool> pool;
-        std::function<RET(ARG)> worker;
-        int next;
-        QList<ARG> input;
-
-        /// no. of running tasks
-        int running;
-
-        Private::CustomDeferred<RET> defer;
-
-        QList<AsyncFuture::Deferred<RET>> tasks;
-
-        bool closed;
-
-        void run() {
-            if (running >= pool->maxThreadCount() || next >= input.size()) {
-                return;
-            }
-
-            int index = next;
-            ARG inputValue = input.at(next);
-            auto task = tasks.at(next);
-            next++;
-            running++;
-
-            auto future = QtConcurrent::run(pool, worker, inputValue);
-            task.complete(future);
-            task.subscribe([=]() {
-                int progressValue = defer.future().progressValue();
-                Private::pipelineReportResult<RET>(defer, index, task.future());
-
-                defer.setProgressValue(progressValue+1);
-                running--;
-
-                if (closed && running == 0 && next >= tasks.size()) {
-                    defer.finish();
-                    return;
-                }
-
-                if (defer.future().isFinished() || defer.future().isCanceled()) {
-                    return;
-                }
-                run();
-            });
-        }
-
+        QSharedPointer<Private::PipelineContext<ARG, RET>> d;
     public:
-        Pipeline(QThreadPool* pool, std::function<RET(ARG)> worker) : pool(pool), worker(worker){
-            next = 0;
-            running = 0;
-            closed = false;
-            defer.subscribe([]() {}, [=](){
-                for (int i = next ; i < tasks.size(); i++) {
-                    tasks[i].cancel();
-                }
-            });
+        Pipeline(QThreadPool* pool, std::function<RET(ARG)> worker) : d(Private::PipelineContext<ARG, RET>::create(pool, worker)) {
         }
 
         QFuture<RET> add(ARG value) {
-            auto res = AsyncFuture::Deferred<RET>();
-            runOnMainThread([=]() {
-                if (defer.future().isFinished() ||
-                    defer.future().isCanceled() ||
-                    closed) {
-                    auto d = res;
-                    d.cancel();
-                    return;
-                }
-
-                input.append(value);
-                tasks << res;
-                defer.setProgressRange(0, tasks.size());
-                if (running < pool->maxThreadCount()) {
-                    run();
-                }
-            });
-            return res.future();
+            return d->add(value);
         }
 
         QFuture<RET> future() {
-            return defer.future();
+            return d->future();
         }
 
-        /// Close the pipeline. No more tasks could be added. The contained future will be terminated automatically once all the tasks finished.
         void close() {
-            runOnMainThread([=]() {
-                closed = true;
-
-                if (closed && running == 0 && next >= tasks.size()) {
-                    defer.finish();
-                }
-
-            });
+            d->close();
         }
+
     };
+
 
     template <typename Functor>
     inline auto pipeline(QThreadPool*pool, Functor func) -> Pipeline<
