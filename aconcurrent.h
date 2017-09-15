@@ -224,10 +224,15 @@ namespace AConcurrent {
                 closed = false;
                 autoDelete = false;
                 defer.subscribe([]() {}, [=](){
+                    closed = true;
                     for (int i = next ; i < tasks.size(); i++) {
                         tasks[i].cancel();
                     }
+                    checkDelete();
                 });
+            }
+
+            ~PipelineContext() {
             }
 
             QFuture<RET> add(ARG value) {

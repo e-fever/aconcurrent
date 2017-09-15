@@ -608,6 +608,7 @@ void AConcurrentTests::test_pipeline_cancel()
     QThreadPool pool;
     pool.setMaxThreadCount(2);
 
+    {
     auto pipeline = AConcurrent::pipeline(&pool, worker);
 
     auto result = pipeline.future();
@@ -651,6 +652,8 @@ void AConcurrentTests::test_pipeline_cancel()
     QCOMPARE(futures[4].isCanceled(), true);
     QCOMPARE(futures[5].isCanceled(), true);
     QCOMPARE(count, 4);
+    }
+    Automator::wait(100);
 }
 
 void AConcurrentTests::test_pipeline_void()
