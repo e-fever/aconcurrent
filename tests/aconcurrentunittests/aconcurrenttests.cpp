@@ -690,3 +690,29 @@ void AConcurrentTests::test_pipeline_void()
     Automator::wait(100);
 }
 
+void AConcurrentTests::test_pipeline_constructor()
+{
+    {
+        auto worker = [](int value) {
+            Q_UNUSED(value);
+        };
+
+        QList<int> input;
+        input << 0 << 1 << 2;
+
+        QFuture<void> future;
+
+        {
+            auto pipeline = AConcurrent::pipeline(&pool , worker, input);
+            pipeline.close();
+            future = pipeline.future();
+        }
+
+        AConcurrent::await(future);
+        QCOMPARE(future.progressMaximum(), 3);
+        QCOMPARE(future.progressValue(), 3);
+    }
+
+
+}
+

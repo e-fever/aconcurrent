@@ -233,6 +233,15 @@ namespace AConcurrent {
                 }
             }
 
+            void _close() {
+                closed = true;
+
+                if (running == 0 && (next >= tasks.size() || defer.future().isCanceled())) {
+                    defer.finish();
+                    checkDelete();
+                }
+            }
+
             void init() {
 
                 next = 0;
@@ -282,13 +291,7 @@ namespace AConcurrent {
             /// Close the pipeline. No more tasks could be added. The contained future will be terminated automatically once all the tasks finished.
             void close() {
                 runOnMainThreadVoid([=]() {
-                    closed = true;
-
-                    if (running == 0 && (next >= tasks.size() || defer.future().isCanceled())) {
-                        defer.finish();
-                        checkDelete();
-                    }
-
+                    _close();
                 });
             }
 
@@ -297,7 +300,7 @@ namespace AConcurrent {
                 auto deleter = [](PipelineContext<ARG,RET> *object) {
                     runOnMainThreadVoid([=]() {
                         object->autoDelete = true;
-                        object->close();
+                        object->_close();
                     });
                 };
 
