@@ -212,6 +212,7 @@ void AConcurrentTests::test_mapped_progress()
 
     QFuture<int> future = AConcurrent::mapped(&pool, input, worker);
     QCOMPARE(future.progressValue(), 0);
+
     QFutureWatcher<int> watcher;
 
     connect(&watcher, &QFutureWatcher<int>::progressValueChanged, [&] (int value) {

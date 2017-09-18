@@ -217,8 +217,24 @@ namespace AConcurrent {
                 });
             }
 
-        public:
-            PipelineContext(QThreadPool* pool, std::function<RET(ARG)> worker) : pool(pool), worker(worker){
+            void _add(AsyncFuture::Deferred<RET> task, ARG value) {
+                if (defer.future().isFinished() ||
+                    defer.future().isCanceled() ||
+                    closed) {
+                    task.cancel();
+                    return;
+                }
+
+                input << value;
+                tasks << task;
+                defer.setProgressRange(0, tasks.size());
+                if (running < pool->maxThreadCount()) {
+                    run();
+                }
+            }
+
+            void init() {
+
                 next = 0;
                 running = 0;
                 closed = false;
@@ -230,6 +246,22 @@ namespace AConcurrent {
                     }
                     checkDelete();
                 });
+
+            }
+
+        public:
+            PipelineContext(QThreadPool* pool, std::function<RET(ARG)> worker) : pool(pool), worker(worker){
+                init();
+            }
+
+            PipelineContext(QThreadPool* pool, std::function<RET(ARG)> worker, QList<ARG> sequence) : pool(pool), worker(worker){
+                init();
+
+                for (int i = 0 ; i < sequence.size() ; i++) {
+                    auto task = AsyncFuture::Deferred<RET>();
+                    _add(task, sequence[i]);
+                }
+
             }
 
             ~PipelineContext() {
@@ -238,20 +270,7 @@ namespace AConcurrent {
             QFuture<RET> add(ARG value) {
                 auto res = AsyncFuture::Deferred<RET>();
                 runOnMainThreadVoid([=]() {
-                    if (defer.future().isFinished() ||
-                        defer.future().isCanceled() ||
-                        closed) {
-                        auto d = res;
-                        d.cancel();
-                        return;
-                    }
-
-                    input.append(value);
-                    tasks << res;
-                    defer.setProgressRange(0, tasks.size());
-                    if (running < pool->maxThreadCount()) {
-                        run();
-                    }
+                    _add(res, value);
                 });
                 return res.future();
             }
@@ -273,7 +292,7 @@ namespace AConcurrent {
                 });
             }
 
-            static QSharedPointer<PipelineContext<ARG,RET>> create(QThreadPool* pool, std::function<RET(ARG)> worker) {
+            static QSharedPointer<PipelineContext<ARG,RET>> create(QThreadPool* pool, std::function<RET(ARG)> worker, QList<ARG> input) {
 
                 auto deleter = [](PipelineContext<ARG,RET> *object) {
                     runOnMainThreadVoid([=]() {
@@ -282,7 +301,7 @@ namespace AConcurrent {
                     });
                 };
 
-                QSharedPointer<PipelineContext<ARG,RET>> ptr(new PipelineContext<ARG,RET>(pool, worker), deleter);
+                QSharedPointer<PipelineContext<ARG,RET>> ptr(new PipelineContext<ARG,RET>(pool, worker, input), deleter);
                 return ptr;
             }
         };
@@ -437,7 +456,7 @@ namespace AConcurrent {
         QSharedPointer<Private::PipelineContext<ARG, RET>> d;
 
     public:
-        Pipeline(QThreadPool* pool, std::function<RET(ARG)> worker) : d(Private::PipelineContext<ARG, RET>::create(pool, worker)) {
+        Pipeline(QThreadPool* pool, std::function<RET(ARG)> worker, QList<ARG> input = QList<ARG>()) : d(Private::PipelineContext<ARG, RET>::create(pool, worker, input)) {
         }
 
         QFuture<RET> add(ARG value) {
@@ -464,6 +483,19 @@ namespace AConcurrent {
                 typename Private::function_traits<Functor>::template arg<0>::type,
                 typename Private::function_traits<Functor>::result_type
             > res(pool, func);
+
+        return res;
+    }
+
+    template <typename Functor, typename ARG>
+    inline auto pipeline(QThreadPool*pool, Functor func, QList<ARG> input) -> Pipeline<
+        typename Private::function_traits<Functor>::template arg<0>::type,
+        typename Private::function_traits<Functor>::result_type
+    >{
+        Pipeline<
+                typename Private::function_traits<Functor>::template arg<0>::type,
+                typename Private::function_traits<Functor>::result_type
+            > res(pool, func, input);
 
         return res;
     }
@@ -549,6 +581,7 @@ namespace AConcurrent {
         for (int i = 0 ; i < input.size() ; i++) {
             handler.add(input[i]);
         }
+
         handler.close();
 
         return handler.future();
