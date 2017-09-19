@@ -168,6 +168,8 @@ namespace AConcurrent {
             /// no. of running tasks
             int running;
 
+            int completedCount;
+
             Private::CustomDeferred<RET> defer;
 
             QList<AsyncFuture::Deferred<RET>> tasks;
@@ -202,9 +204,10 @@ namespace AConcurrent {
                     Private::pipelineReportResult<RET>(defer, index, task.future());
 
                     defer.setProgressValue(progressValue+1);
+                    completedCount++;
                     running--;
 
-                    if (closed && running == 0 && next >= tasks.size()) {
+                    if (closed && completedCount == tasks.size()) {
                         defer.finish();
                         checkDelete();
                         return;
@@ -243,7 +246,7 @@ namespace AConcurrent {
             }
 
             void init() {
-
+                completedCount = 0;
                 next = 0;
                 running = 0;
                 closed = false;
@@ -266,9 +269,16 @@ namespace AConcurrent {
             PipelineContext(QThreadPool* pool, std::function<RET(ARG)> worker, QList<ARG> sequence) : pool(pool), worker(worker){
                 init();
 
+                input = sequence;
                 for (int i = 0 ; i < sequence.size() ; i++) {
                     auto task = AsyncFuture::Deferred<RET>();
-                    _add(task, sequence[i]);
+                    tasks << task;
+                }
+
+                defer.setProgressRange(0, sequence.size());
+
+                for (int i = 0 ; i < pool->maxThreadCount();i++) {
+                    run();
                 }
 
             }
@@ -580,11 +590,7 @@ namespace AConcurrent {
 
     template <typename Sequence, typename Functor>
     inline auto mapped(QThreadPool*pool, Sequence input, Functor func) -> QFuture<typename Private::function_traits<Functor>::result_type>{
-        auto handler = pipeline(pool, func);
-        for (int i = 0 ; i < input.size() ; i++) {
-            handler.add(input[i]);
-        }
-
+        auto handler = pipeline(pool, func, input);
         handler.close();
 
         return handler.future();

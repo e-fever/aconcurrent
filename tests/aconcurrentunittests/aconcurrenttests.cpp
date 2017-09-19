@@ -69,6 +69,7 @@ void AConcurrentTests::test_mapped()
 
     QFuture<int> future = AConcurrent::mapped(&pool, input, worker);
 
+    QCOMPARE(future.progressMaximum(), count);
     QCOMPARE(future.isFinished(), false);
     AConcurrent::await(future);
 
