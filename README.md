@@ -18,7 +18,26 @@ API
 
 **QFuture<R> AConcurrent::runOnMainThread(Functor functor)**
 
-Run a function on the main thread. If the current thread is the main thread, it will be executed in next tick. The return is a QFuture<RET> to represent the result of the function.
+Run a function on the main thread and returns a QFuture<RET> to represent the result of the function. If the current thread is the main thread, it will be executed in next tick.
+
+Example
+
+```C++
+
+auto worker = [=]() {
+
+  // processing
+
+  QFuture<int> future = AConcurrent::runOnMainThread([=]() {
+    // Save the result on main thread
+    return 0; // no error
+  });
+  AConcurrent::await(future); // future.waitForFinished();
+};
+
+QtConcurrent::run(worker);
+
+```
 
 **QFuture<R> AConcurrent::mapped(Sequence sequence, Functor worker)**
 
