@@ -433,19 +433,44 @@ void AConcurrentTests::test_pipeline()
         return value * value;
     };
 
-    QFuture<qreal> future;
     {
-        auto pipeline = AConcurrent::pipeline(&pool, worker);
-        pipeline.add(0);
-        pipeline.close();
 
-        future = pipeline.future();
+        QFuture<qreal> future;
+
+        {
+            auto pipeline = AConcurrent::pipeline(&pool, worker);
+            pipeline.add(0);
+            pipeline.close();
+
+            future = pipeline.future();
+            QCOMPARE(future.isFinished(), false);
+        }
         QCOMPARE(future.isFinished(), false);
-    }
-    QCOMPARE(future.isFinished(), false);
 
-    AConcurrent::await(future);
-    QCOMPARE(future.isFinished(), true);
+        AConcurrent::await(future);
+        QCOMPARE(future.isFinished(), true);
+    }
+
+    {
+        QFuture<qreal> future;
+
+        {
+            AConcurrent::Pipeline<int, qreal> pipeline;
+            pipeline = AConcurrent::pipeline(&pool, worker);
+            pipeline.add(0);
+            pipeline.close();
+
+            future = pipeline.future();
+            QCOMPARE(future.isFinished(), false);
+
+        }
+
+        QCOMPARE(future.isFinished(), false);
+
+        AConcurrent::await(future);
+        QCOMPARE(future.isFinished(), true);
+    }
+
 
 }
 

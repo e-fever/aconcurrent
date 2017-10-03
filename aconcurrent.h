@@ -469,6 +469,9 @@ namespace AConcurrent {
         QSharedPointer<Private::PipelineContext<ARG, RET>> d;
 
     public:
+        Pipeline() {
+        }
+
         Pipeline(QThreadPool* pool, std::function<RET(ARG)> worker, QList<ARG> input = QList<ARG>()) : d(Private::PipelineContext<ARG, RET>::create(pool, worker, input)) {
         }
 
