@@ -455,7 +455,7 @@ void AConcurrentTests::test_pipeline()
         QFuture<qreal> future;
 
         {
-            AConcurrent::Pipeline<int, qreal> pipeline;
+            AConcurrent::Pipeline<qreal,int> pipeline;
             pipeline = AConcurrent::pipeline(&pool, worker);
             pipeline.add(0);
             pipeline.close();

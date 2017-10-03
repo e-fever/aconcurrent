@@ -155,7 +155,7 @@ namespace AConcurrent {
             Q_UNUSED(future);
         }
 
-        template <typename ARG, typename RET>
+        template <typename RET, typename ARG>
         class PipelineContext {
         private:
             /// Variables access is not allowed out of the main thread except the initialization
@@ -305,16 +305,16 @@ namespace AConcurrent {
                 });
             }
 
-            static QSharedPointer<PipelineContext<ARG,RET>> create(QThreadPool* pool, std::function<RET(ARG)> worker, QList<ARG> input) {
+            static QSharedPointer<PipelineContext<RET,ARG>> create(QThreadPool* pool, std::function<RET(ARG)> worker, QList<ARG> input) {
 
-                auto deleter = [](PipelineContext<ARG,RET> *object) {
+                auto deleter = [](PipelineContext<RET,ARG> *object) {
                     runOnMainThreadVoid([=]() {
                         object->autoDelete = true;
                         object->_close();
                     });
                 };
 
-                QSharedPointer<PipelineContext<ARG,RET>> ptr(new PipelineContext<ARG,RET>(pool, worker, input), deleter);
+                QSharedPointer<PipelineContext<RET,ARG>> ptr(new PipelineContext<RET,ARG>(pool, worker, input), deleter);
                 return ptr;
             }
         };
@@ -388,7 +388,7 @@ namespace AConcurrent {
         Private::debounceStore[k] = defer.future();
     }
 
-    template <typename ARG, typename RET>
+    template <typename RET, typename ARG>
     class Queue {
     private:
         class Context {
@@ -451,28 +451,28 @@ namespace AConcurrent {
 
     template <typename Functor>
     inline auto queue(QThreadPool*pool, Functor func) -> Queue<
-        typename Private::function_traits<Functor>::template arg<0>::type,
-        typename Private::function_traits<Functor>::result_type
+        typename Private::function_traits<Functor>::result_type,
+        typename Private::function_traits<Functor>::template arg<0>::type
     >{
-        Queue<
-                typename Private::function_traits<Functor>::template arg<0>::type,
-                typename Private::function_traits<Functor>::result_type
-            > queue(pool, func);
+        typedef typename Private::function_traits<Functor>::template arg<0>::type ARG;
+        typedef typename Private::function_traits<Functor>::result_type RET;
+
+        Queue<RET,ARG> queue(pool, func);
 
 
         return queue;
     }
 
-    template <typename ARG, typename RET>
+    template <typename RET, typename ARG>
     class Pipeline {
 
-        QSharedPointer<Private::PipelineContext<ARG, RET>> d;
+        QSharedPointer<Private::PipelineContext<RET, ARG>> d;
 
     public:
         Pipeline() {
         }
 
-        Pipeline(QThreadPool* pool, std::function<RET(ARG)> worker, QList<ARG> input = QList<ARG>()) : d(Private::PipelineContext<ARG, RET>::create(pool, worker, input)) {
+        Pipeline(QThreadPool* pool, std::function<RET(ARG)> worker, QList<ARG> input = QList<ARG>()) : d(Private::PipelineContext<RET, ARG>::create(pool, worker, input)) {
         }
 
         QFuture<RET> add(ARG value) {
@@ -492,26 +492,26 @@ namespace AConcurrent {
 
     template <typename Functor>
     inline auto pipeline(QThreadPool*pool, Functor func) -> Pipeline<
-        typename Private::function_traits<Functor>::template arg<0>::type,
-        typename Private::function_traits<Functor>::result_type
+        typename Private::function_traits<Functor>::result_type,
+        typename Private::function_traits<Functor>::template arg<0>::type
     >{
-        Pipeline<
-                typename Private::function_traits<Functor>::template arg<0>::type,
-                typename Private::function_traits<Functor>::result_type
-            > res(pool, func);
+        typedef typename Private::function_traits<Functor>::template arg<0>::type ARG;
+        typedef typename Private::function_traits<Functor>::result_type RET;
+
+        Pipeline<RET,ARG> res(pool, func);
 
         return res;
     }
 
     template <typename Functor, typename ARG>
     inline auto pipeline(QThreadPool*pool, Functor func, QList<ARG> input) -> Pipeline<
-        typename Private::function_traits<Functor>::template arg<0>::type,
-        typename Private::function_traits<Functor>::result_type
+        typename Private::function_traits<Functor>::result_type,
+        typename Private::function_traits<Functor>::template arg<0>::type
     >{
-        Pipeline<
-                typename Private::function_traits<Functor>::template arg<0>::type,
-                typename Private::function_traits<Functor>::result_type
-            > res(pool, func, input);
+        typedef typename Private::function_traits<Functor>::template arg<0>::type A;
+        typedef typename Private::function_traits<Functor>::result_type RET;
+
+        Pipeline<RET, A> res(pool, func, input);
 
         return res;
     }
