@@ -85,6 +85,26 @@ namespace AConcurrent {
             };
         };
 
+        /* It is an additional to the original function_traits to handle non-const function (with mutable keyword lambda). */
+
+        template <typename ClassType, typename ReturnType, typename... Args>
+        struct function_traits<ReturnType(ClassType::*)(Args...)>
+        // we specialize for pointers to member function
+        {
+            enum { arity = sizeof...(Args) };
+            // arity is the number of arguments.
+
+            typedef ReturnType result_type;
+
+            template <size_t i>
+            struct arg
+            {
+                typedef typename std::tuple_element<i, std::tuple<Args...>>::type type;
+                // the i-th argument is equivalent to the i-th tuple element of a tuple
+                // composed of those arguments.
+            };
+        };
+
         template <typename R>
         inline void completeDefer(AsyncFuture::Deferred<R> defer, const QVector<QFuture<R>> &futures) {
             QList<R> res;
@@ -476,15 +496,25 @@ namespace AConcurrent {
         }
 
         QFuture<RET> add(ARG value) {
-            return d->add(value);
+            QFuture<RET> future;
+            if (d) {
+                future = d->add(value);
+            }
+            return future;
         }
 
         QFuture<RET> future() {
-            return d->future();
+            QFuture<RET> future;
+            if (d) {
+                future = d->future();
+            }
+            return future;
         }
 
         void close() {
-            d->close();
+            if (d) {
+                d->close();
+            }
         }
 
     };

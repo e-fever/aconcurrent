@@ -42,6 +42,7 @@ private slots:
 
     void test_pipeline_constructor();
 
+    void test_pipeline_dynamic_add();
 
 private:
 

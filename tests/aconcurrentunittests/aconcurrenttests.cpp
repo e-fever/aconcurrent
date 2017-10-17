@@ -739,6 +739,46 @@ void AConcurrentTests::test_pipeline_constructor()
         QCOMPARE(future.progressValue(), 3);
     }
 
+}
+
+
+void AConcurrentTests::test_pipeline_dynamic_add()
+{
+    class Session {
+    public:
+        AConcurrent::Pipeline<void, bool> pipeline;
+    };
+
+    Session* session = new Session();
+
+    auto worker = [=](bool value) {
+        Automator::wait(50);
+        if (value) {
+            Automator::wait(50);
+            session->pipeline.add(false);
+        }
+    };
+
+    QList<bool> input;
+    input << false << false << false << true;
+
+    session->pipeline = AConcurrent::pipeline(&pool, worker, input);
+    auto future = session->pipeline.future();
+
+    AsyncFuture::observe(future).progress([=]() mutable {
+        qDebug() << future.progressValue() << future.progressMaximum();
+        if (future.progressValue() == future.progressMaximum()) {
+            session->pipeline.close();
+            delete session;
+        }
+    });
+
+    AConcurrent::await(future);
+    qDebug() << "Done";
+
+    QCOMPARE(future.progressValue(), 5);
+
+    QCOMPARE(future.progressMaximum(), 5);
 
 }
 
