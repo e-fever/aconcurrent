@@ -15,7 +15,7 @@
     "fingerprint": ""
   },
   "dependencies": [
-    "async.future.pri@0.3.6.3"
+    "async.future.pri@0.3.6.4"
   ],
   "license": "APACHE_2_0",
   "pri_filename": "aconcurrent.pri",

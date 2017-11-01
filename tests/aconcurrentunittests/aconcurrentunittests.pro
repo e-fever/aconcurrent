@@ -1,4 +1,4 @@
-QT       += testlib qml concurrent
+QT       += testlib qml
 
 TARGET = aconcurrent
 CONFIG   += console

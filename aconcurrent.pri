@@ -1,6 +1,8 @@
 INCLUDEPATH += $$PWD
 DEPENDPATH += $$PWD
 
+QT += concurrent
+
 HEADERS += \
     $$PWD/aconcurrent.h
 
