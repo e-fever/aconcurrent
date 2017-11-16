@@ -52,6 +52,16 @@ AConcurrentTests::AConcurrentTests(QObject *parent) : QObject(parent)
     pool.setMaxThreadCount(4);
 }
 
+void AConcurrentTests::test_timeout()
+{
+    QElapsedTimer timer;
+    timer.start();
+    auto future = AConcurrent::timeout(200);
+    await(future);
+
+    QCOMPARE(timer.elapsed() > 200, true);
+}
+
 void AConcurrentTests::test_mapped()
 {
     auto worker = [](int value) {

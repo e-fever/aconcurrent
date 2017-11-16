@@ -39,6 +39,8 @@ QtConcurrent::run(worker);
 
 ```
 
+**QFuture<void> AConcurrent::timeout(int value)**
+
 **QFuture<R> AConcurrent::mapped(Sequence sequence, Functor worker)**
 
 Calls function once for each item in sequence and return a future with each mapped item as a result.

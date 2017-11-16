@@ -358,6 +358,16 @@ namespace AConcurrent {
         return defer.future();
     }
 
+    inline QFuture<void> timeout(int value) {
+        auto defer = AsyncFuture::deferred<void>();
+
+        QTimer::singleShot(value, [=]() mutable {
+            defer.complete();
+        });
+
+        return defer.future();
+    }
+
     // Wait for a QFuture to be finished without blocking
     template <typename T>
     inline void await(QFuture<T> future, int timeout = -1) {

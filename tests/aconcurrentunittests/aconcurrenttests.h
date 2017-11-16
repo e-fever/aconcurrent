@@ -10,6 +10,8 @@ public:
 
 private slots:
 
+    void test_timeout();
+
     void test_mapped();
 
     void test_mapped_void();
