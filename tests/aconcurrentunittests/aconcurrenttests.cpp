@@ -56,7 +56,7 @@ void AConcurrentTests::test_timeout()
 {
     QElapsedTimer timer;
     timer.start();
-    auto future = AConcurrent::timeout(200);
+    auto future = AConcurrent::timeout(250);
     await(future);
 
     QCOMPARE(timer.elapsed() > 200, true);
