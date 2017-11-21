@@ -27,7 +27,6 @@ Example
 auto worker = [=]() {
 
   // processing
-
   QFuture<int> future = AConcurrent::runOnMainThread([=]() {
     // Save the result on main thread
     return 0; // no error
@@ -40,6 +39,8 @@ QtConcurrent::run(worker);
 ```
 
 **QFuture<void> AConcurrent::timeout(int value)**
+
+Returns a QFuture&lt;void&gt; which will be completed after msec specified by value.
 
 **QFuture<R> AConcurrent::mapped(Sequence sequence, Functor worker)**
 
