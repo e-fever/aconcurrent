@@ -10,14 +10,11 @@
     "url": "git@github.com:e-fever/aconcurrent.git"
   },
   "version": {
-    "label": "0.1.14",
-    "revision": "",
-    "fingerprint": ""
+    "label": "0.1.14"
   },
   "dependencies": [
-    "async.future.pri@0.3.6.5"
+    "async.future.pri@0.4.1"
   ],
   "license": "APACHE_2_0",
-  "pri_filename": "aconcurrent.pri",
-  "webpage": ""
+  "priFilename": "aconcurrent.pri"
 }

@@ -775,7 +775,7 @@ void AConcurrentTests::test_pipeline_dynamic_add()
     session->pipeline = AConcurrent::pipeline(&pool, worker, input);
     auto future = session->pipeline.future();
 
-    AsyncFuture::observe(future).progress([=]() mutable {
+    AsyncFuture::observe(future).onProgress([=]() mutable {
         qDebug() << future.progressValue() << future.progressMaximum();
         if (future.progressValue() == future.progressMaximum()) {
             session->pipeline.close();
