@@ -379,7 +379,7 @@ namespace AConcurrent {
         watcher.setFuture(future);
         QEventLoop loop;
 
-        if (timeout > 0) {
+        if (timeout >= 0) {
             QTimer::singleShot(timeout, &loop, &QEventLoop::quit);
         }
 
